@@ -1,5 +1,11 @@
 # NUMAlloc
 
+[![Crates.io](https://img.shields.io/crates/v/numalloc.svg)](https://crates.io/crates/numalloc)
+[![docs.rs](https://docs.rs/numalloc/badge.svg)](https://docs.rs/numalloc)
+[![CI](https://github.com/Mnwa/NUMAlloc-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/Mnwa/NUMAlloc-rs/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/crates/l/numalloc.svg)](https://github.com/Mnwa/NUMAlloc-rs/blob/master/LICENSE)
+[![Downloads](https://img.shields.io/crates/d/numalloc.svg)](https://crates.io/crates/numalloc)
+
 **A blazing-fast, NUMA-aware memory allocator written in pure Rust.**
 
 NUMAlloc is a drop-in replacement for the global allocator, purpose-built for Non-Uniform Memory Access (NUMA) machines. It pins threads and memory to NUMA nodes, routes freed objects back to their origin node, and shares huge pages incrementally -- delivering fewer remote memory accesses, fewer TLB misses, and lower latency than general-purpose allocators.
