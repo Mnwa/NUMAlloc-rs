@@ -114,7 +114,36 @@ pub fn bind_thread_to_node(node: usize) {
 #[cfg(not(target_os = "linux"))]
 pub fn bind_thread_to_node(_node: usize) {}
 
-/// Return the system page size.
+/// Return the system page size (cached after first call).
 pub fn page_size() -> usize {
-    unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize }
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    static CACHED: AtomicUsize = AtomicUsize::new(0);
+    let val = CACHED.load(Ordering::Relaxed);
+    if val != 0 {
+        return val;
+    }
+    let ps = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
+    CACHED.store(ps, Ordering::Relaxed);
+    ps
+}
+
+/// Advise the kernel that the given memory range is no longer needed.
+/// The kernel may reclaim the physical pages; future accesses will
+/// zero-fault them back in.
+///
+/// # Safety
+/// `ptr` and `size` must describe a valid mmap'd region.
+pub unsafe fn madvise_dontneed(ptr: NonNull<u8>, size: usize) {
+    #[cfg(target_os = "macos")]
+    unsafe {
+        libc::madvise(ptr.as_ptr() as *mut libc::c_void, size, libc::MADV_FREE);
+    }
+    #[cfg(not(target_os = "macos"))]
+    unsafe {
+        libc::madvise(
+            ptr.as_ptr() as *mut libc::c_void,
+            size,
+            libc::MADV_DONTNEED,
+        );
+    }
 }

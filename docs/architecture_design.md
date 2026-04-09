@@ -22,12 +22,12 @@ In a NUMA machine, each CPU socket (node) has its own local memory. Accessing lo
 
 Traditional allocators (glibc, TCMalloc, jemalloc, mimalloc) were designed for uniform memory. They cause four categories of NUMA performance problems:
 
-| Problem | Root cause | Impact |
-|---------|-----------|--------|
-| **Expensive node lookups** | Checking which node a thread runs on requires a syscall (~10,000 cycles) | Allocators avoid checking, so they guess wrong |
-| **Blind deallocation** | Freed objects go to the deallocating thread's cache regardless of which node the memory belongs to | Reuse of freed memory triggers remote accesses |
-| **Thread migration** | The OS can move a thread to a different node mid-execution | All of a thread's "local" memory becomes remote overnight |
-| **No huge page coordination** | Allocators either ignore THP or give each thread a private 2MB superblock | Wasted memory or missed TLB optimization |
+| Problem                       | Root cause                                                                                         | Impact                                                    |
+|-------------------------------|----------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
+| **Expensive node lookups**    | Checking which node a thread runs on requires a syscall (~10,000 cycles)                           | Allocators avoid checking, so they guess wrong            |
+| **Blind deallocation**        | Freed objects go to the deallocating thread's cache regardless of which node the memory belongs to | Reuse of freed memory triggers remote accesses            |
+| **Thread migration**          | The OS can move a thread to a different node mid-execution                                         | All of a thread's "local" memory becomes remote overnight |
+| **No huge page coordination** | Allocators either ignore THP or give each thread a private 2MB superblock                          | Wasted memory or missed TLB optimization                  |
 
 NUMAlloc tackles all four.
 
@@ -296,12 +296,12 @@ When a thread needs objects from the per-node heap, it grabs an **entire sub-lis
 
 NUMAlloc keeps all metadata local to the node that uses it:
 
-| Metadata | Location | Size |
-|----------|----------|------|
-| `PerBagSizeInfo` | Separate area, normal pages (via `madvise`) | 8 bytes per 32 KB bag |
-| `PerBigObjectSizeInfo` | Linked list within each node's region | Variable (size + availability per big object) |
-| `PerThreadHeap` | Thread-local storage, on thread's node | One freelist head per size class |
-| `PerNodeHeap` | Within each node's region | Freelists + circular array of sub-lists |
+| Metadata               | Location                                    | Size                                          |
+|------------------------|---------------------------------------------|-----------------------------------------------|
+| `PerBagSizeInfo`       | Separate area, normal pages (via `madvise`) | 8 bytes per 32 KB bag                         |
+| `PerBigObjectSizeInfo` | Linked list within each node's region       | Variable (size + availability per big object) |
+| `PerThreadHeap`        | Thread-local storage, on thread's node      | One freelist head per size class              |
+| `PerNodeHeap`          | Within each node's region                   | Freelists + circular array of sub-lists       |
 
 Local metadata means that even metadata access is a local memory operation — no hidden remote accesses from bookkeeping.
 
@@ -333,22 +333,99 @@ sequenceDiagram
 
 ---
 
-## 11. Performance Results Summary
+## 11. Large Object Cache
 
-Tested on an 8-node Intel Xeon machine (128 cores, 512 GB RAM) with 25 applications:
+Objects larger than 16 KB bypass the bag-based small-object path and are backed by individual `mmap` regions. Without caching, every large alloc/dealloc pair incurs two syscalls (`mmap` + `munmap`), which costs 1--2 microseconds per pair.
 
-| Metric | NUMAlloc vs. glibc | NUMAlloc vs. mimalloc |
-|--------|-------------------|----------------------|
-| Average speedup | 20.9% faster | 15.7% faster |
-| Best case (fluidanimate) | 5.3× faster | 4.6× faster |
-| Remote accesses | 9× fewer | 8× fewer |
-| TLB misses | 18× fewer | — |
-| Memory overhead | +17.6% | 1.63× better |
-| Scalability at 128 threads | 88× speedup | 75× (mimalloc) |
+### Architecture
+
+The large object cache is a **per-thread, heap-allocated** structure that stores recently freed mmap regions for reuse. It is kept separate from `PerThreadHeap` so that the hot small-object freelists remain in a compact, cache-friendly struct (~320 bytes).
+
+```mermaid
+flowchart TD
+    ALLOC([alloc_large]) --> CACHE_CHECK{"Cache hit?<br/>(exact size match)"}
+    CACHE_CHECK -->|Yes| REUSE["Reuse cached mmap region<br/>Write header, return pointer"]
+    CACHE_CHECK -->|No| MMAP["mmap fresh region<br/>mbind to thread's node"]
+
+    FREE([dealloc_large]) --> CACHE_PUT{"Cache has room?"}
+    CACHE_PUT -->|Yes| STORE["Store in cache<br/>madvise if region > 512 KB"]
+    CACHE_PUT -->|"No (full)"| EVICT["Evict oldest entry (munmap)<br/>Store new entry"]
+```
+
+### Design Decisions
+
+| Decision                          | Rationale                                                                                                                                                       |
+|-----------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Heap-allocated cache**          | Keeps `PerThreadHeap` at ~320 bytes for L1-cache-friendly small-object access. The 16 KB cache array lives in a separate System-allocated block.                |
+| **Exact size matching**           | The `alloc_size` (page-rounded total mmap size) is deterministic for a given `(size, align)` pair. Exact matching avoids wasting memory from oversized reuse.   |
+| **Packed array with swap-remove** | Entries are stored contiguously from index 0..count. `take()` finds at index 0 (common case: all same size) and swap-removes in O(1). `put()` appends in O(1).  |
+| **Eviction on full**              | When the cache is full, the oldest entries are evicted via `munmap` to make room. This allows the cache to adapt when allocation patterns change.               |
+| **Conditional madvise**           | `madvise(MADV_FREE/MADV_DONTNEED)` is only called for regions > 512 KB. Below this threshold, the syscall overhead (~1 microsecond) exceeds the memory savings. |
+| **1024 slots, 512 MiB limit**     | Handles bulk workloads (1000+ items) while bounding total virtual memory retained per thread.                                                                   |
+
+### Impact
+
+The large object cache eliminates syscall overhead for repeated large allocations:
+
+| Benchmark             | Before            | After             | Improvement |
+|-----------------------|-------------------|-------------------|-------------|
+| alloc_dealloc 64 KB   | 1.9 microseconds  | 7.7 ns            | **247x**    |
+| alloc_dealloc 256 KB  | 2.15 microseconds | 8.4 ns            | **256x**    |
+| bulk 1000x 64 KB      | 3.0 ms            | 18.4 microseconds | **163x**    |
+| realloc 4 KB to 64 KB | 2.38 microseconds | 78 ns             | **31x**     |
 
 ---
 
-## 12. Limitations and Trade-offs
+## 12. Performance Results
+
+### Micro-benchmarks (single-threaded alloc+dealloc, steady state)
+
+| Size   | numalloc   | system (glibc) | mimalloc | jemalloc |
+|--------|------------|----------------|----------|----------|
+| 8 B    | **7.4 ns** | 13.8 ns        | 10.9 ns  | 9.2 ns   |
+| 64 B   | **7.4 ns** | 15.4 ns        | 11.1 ns  | 9.4 ns   |
+| 256 B  | **7.3 ns** | 17.3 ns        | 12.4 ns  | 9.3 ns   |
+| 1 KB   | **7.4 ns** | 31.2 ns        | 15.7 ns  | 9.8 ns   |
+| 4 KB   | **7.4 ns** | 25.1 ns        | 20.4 ns  | 11.3 ns  |
+| 16 KB  | **7.3 ns** | 31.7 ns        | 19.3 ns  | 23.2 ns  |
+| 64 KB  | **7.7 ns** | 692 ns         | 19.4 ns  | 104 ns   |
+| 256 KB | **8.4 ns** | 707 ns         | 956 ns   | 105 ns   |
+
+numalloc is the fastest allocator across all tested sizes, with a flat ~7.5 ns profile from 8 B through 256 KB thanks to the per-thread freelist (small) and large object cache (large).
+
+### Multi-threaded alloc+dealloc (10,000 ops/thread)
+
+| Config          | numalloc             | system           | mimalloc         | jemalloc         |
+|-----------------|----------------------|------------------|------------------|------------------|
+| 64 B, 2 threads | **108 microseconds** | 658 microseconds | 146 microseconds | 128 microseconds |
+| 64 B, 4 threads | **152 microseconds** | 1.1 ms           | 177 microseconds | 159 microseconds |
+| 1 KB, 8 threads | **208 microseconds** | 2.36 ms          | 299 microseconds | 232 microseconds |
+| 4 KB, 2 threads | **106 microseconds** | 305 microseconds | 243 microseconds | 151 microseconds |
+| 4 KB, 8 threads | **239 microseconds** | 469 microseconds | 373 microseconds | 254 microseconds |
+
+numalloc scales well with thread count due to its lock-free per-node Treiber stacks and zero-synchronization per-thread freelists.
+
+### Bulk alloc+free (1000 items, single-threaded)
+
+| Size  | numalloc              | system            | mimalloc             | jemalloc          |
+|-------|-----------------------|-------------------|----------------------|-------------------|
+| 64 B  | 15.8 microseconds     | 17.0 microseconds | **8.0 microseconds** | 17.9 microseconds |
+| 4 KB  | **23.8 microseconds** | 87.7 microseconds | 24.2 microseconds    | 47.6 microseconds |
+| 64 KB | **18.4 microseconds** | 705 microseconds  | 43.0 microseconds    | 509 microseconds  |
+
+### NUMA-specific results (8-node Intel Xeon, 128 cores)
+
+| Metric                     | NUMAlloc vs. glibc | NUMAlloc vs. mimalloc |
+|----------------------------|--------------------|-----------------------|
+| Average speedup            | 20.9% faster       | 15.7% faster          |
+| Best case (fluidanimate)   | 5.3x faster        | 4.6x faster           |
+| Remote accesses            | 9x fewer           | 8x fewer              |
+| TLB misses                 | 18x fewer          | --                    |
+| Scalability at 128 threads | 88x speedup        | 75x (mimalloc)        |
+
+---
+
+## 13. Limitations and Trade-offs
 
 1. **Higher memory consumption with THP enabled** — The large initial `mmap` triggers huge-page backing. NUMAlloc uses 17.6% more memory than glibc (but 4.5× less than Scalloc). Could be improved with TEMERAIRE-style page management.
 
@@ -360,7 +437,7 @@ Tested on an 8-node Intel Xeon machine (128 cores, 512 GB RAM) with 25 applicati
 
 ---
 
-## 13. Comparison with Other Allocators
+## 14. Comparison with Other Allocators
 
 ```mermaid
 graph TD
@@ -387,7 +464,7 @@ graph TD
 
 ---
 
-## 14. When to Use NUMAlloc
+## 15. When to Use NUMAlloc
 
 **Good fit:**
 - Multi-threaded server applications on NUMA hardware (2+ sockets)
