@@ -140,10 +140,6 @@ pub unsafe fn madvise_dontneed(ptr: NonNull<u8>, size: usize) {
     }
     #[cfg(not(target_os = "macos"))]
     unsafe {
-        libc::madvise(
-            ptr.as_ptr() as *mut libc::c_void,
-            size,
-            libc::MADV_DONTNEED,
-        );
+        libc::madvise(ptr.as_ptr() as *mut libc::c_void, size, libc::MADV_DONTNEED);
     }
 }

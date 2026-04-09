@@ -8,7 +8,7 @@ use crate::freelist::FreeBlock;
 use crate::heap::GlobalHeap;
 use crate::platform;
 use crate::size_class::{self, BAG_SIZE, SMALL_LIMIT};
-use crate::thread_heap::{MAX_THREAD_CACHE, MADVISE_THRESHOLD, PerThreadHeap, REFILL_BATCH};
+use crate::thread_heap::{MADVISE_THRESHOLD, MAX_THREAD_CACHE, PerThreadHeap, REFILL_BATCH};
 
 // ---------------------------------------------------------------------------
 // Per-thread heap guard (cleanup on thread exit)

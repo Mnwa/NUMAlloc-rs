@@ -47,14 +47,8 @@ impl LargeCache {
             std::alloc::handle_alloc_error(layout);
         };
         unsafe {
-            std::ptr::write(
-                &raw mut (*nn.as_ptr()).count,
-                0,
-            );
-            std::ptr::write(
-                &raw mut (*nn.as_ptr()).bytes,
-                0,
-            );
+            std::ptr::write(&raw mut (*nn.as_ptr()).count, 0);
+            std::ptr::write(&raw mut (*nn.as_ptr()).bytes, 0);
         }
         nn
     }
@@ -98,8 +92,7 @@ impl LargeCache {
     fn put(&mut self, original_ptr: NonNull<u8>, alloc_size: usize) -> bool {
         // Evict stale entries when the cache is full or byte limit reached.
         while self.count > 0
-            && (self.count >= LARGE_CACHE_SLOTS
-                || self.bytes + alloc_size > MAX_LARGE_CACHE_BYTES)
+            && (self.count >= LARGE_CACHE_SLOTS || self.bytes + alloc_size > MAX_LARGE_CACHE_BYTES)
         {
             self.count -= 1;
             let evicted = self.entries[self.count];
@@ -190,11 +183,7 @@ impl PerThreadHeap {
     /// cache is full or the total byte limit would be exceeded (caller should
     /// `munmap` instead).
     #[inline]
-    pub fn large_cache_put(
-        &mut self,
-        original_ptr: NonNull<u8>,
-        alloc_size: usize,
-    ) -> bool {
+    pub fn large_cache_put(&mut self, original_ptr: NonNull<u8>, alloc_size: usize) -> bool {
         // SAFETY: large_cache was allocated in `new` and is exclusively owned.
         unsafe { self.large_cache.as_mut().put(original_ptr, alloc_size) }
     }
