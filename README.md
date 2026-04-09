@@ -9,7 +9,7 @@ NUMAlloc is a drop-in replacement for the global allocator, purpose-built for No
 - **Zero-cost NUMA awareness** - O(1) origin-node lookup via pointer arithmetic, no syscalls on the hot path
 - **Origin-aware deallocation** - freed objects return to their origin node's freelist, eliminating remote reuse
 - **Lock-free concurrency** - Treiber stacks with ABA-safe generation tags for inter-thread communication
-- **Incremental huge page sharing** - threads on the same node share 2 MB transparent huge pages in 32 KB increments
+- **Incremental huge page sharing** - threads on the same node share 2 MB transparent huge pages in 32 KB–256 KB increments
 - **Memory safe** - built with Rust's ownership model; every `unsafe` block is documented with safety invariants
 - **Minimal dependencies** - only `libc` for POSIX syscalls, no proc macros, no heavy frameworks
 - **Drop-in `GlobalAlloc`** - one line to replace your allocator
@@ -50,19 +50,19 @@ graph LR
     D --> E["OS mmap"]
 ```
 
-### Allocation path (small objects, <= 16 KB)
+### Allocation path (small objects, <= 256 KB)
 
 ```mermaid
 graph TD
     A["malloc(size)"] --> B["Per-Thread Freelist"]
     B -- hit --> C["return pointer<br/>(zero synchronization)"]
     B -- miss --> D["Per-Node Treiber Stack"]
-    D -- hit --> E["batch-pop 64 objects,<br/>return one"]
+    D -- hit --> E["batch-pop up to 64 objects,<br/>return one"]
     D -- miss --> F["Region Bump Allocator"]
-    F --> G["carve 32 KB bag,<br/>fill freelist, return one"]
+    F --> G["carve bag (32 KB–256 KB),<br/>fill freelist, return one"]
 ```
 
-### Allocation path (large objects, > 16 KB)
+### Allocation path (large objects, > 256 KB)
 
 ```mermaid
 graph TD
@@ -80,7 +80,7 @@ graph TD
     B --> C{"Object type?"}
     C -- "small, local" --> D["push to per-thread freelist<br/>(no locks)"]
     C -- "small, remote" --> E["push to origin node's<br/>Treiber stack (lock-free CAS)"]
-    C -- "large" --> F["cache mmap region for reuse<br/>(evict old if full)"]
+    C -- "large (> 256KB)" --> F["cache mmap region for reuse<br/>(evict old if full)"]
 ```
 
 ### Heap layout
@@ -128,13 +128,22 @@ Single-threaded alloc+dealloc (steady state, lower is better):
 | 64 KB  | **7.7 ns** | 692 ns         | 19.4 ns  | 104 ns   |
 | 256 KB | **8.4 ns** | 707 ns         | 956 ns   | 105 ns   |
 
+Bulk alloc+free (1000 items, single-threaded, lower is better):
+
+| Size   | numalloc        | system  | mimalloc | jemalloc |
+|--------|-----------------|---------|----------|----------|
+| 64 B   | **8.2 us**      | 16.8 us | 8.0 us   | 17.1 us  |
+| 4 KB   | **24.3 us**     | 88.1 us | 24.4 us  | 46.5 us  |
+| 64 KB  | 57.2 us         | 709 us  | 43.5 us  | 508 us   |
+| 256 KB | **37.4 us**     | 704 us  | 155 us   | 545 us   |
+
 Multi-threaded alloc+dealloc (10,000 ops/thread, lower is better):
 
 | Config          | numalloc   | system  | mimalloc | jemalloc |
 |-----------------|------------|---------|----------|----------|
-| 64 B, 4 threads | **152 us** | 1.1 ms  | 177 us   | 159 us   |
-| 1 KB, 8 threads | **208 us** | 2.36 ms | 299 us   | 232 us   |
-| 4 KB, 8 threads | **239 us** | 469 us  | 373 us   | 254 us   |
+| 64 B, 4 threads | **153 us** | 1.2 ms  | 172 us   | 158 us   |
+| 1 KB, 8 threads | **213 us** | 2.9 ms  | 293 us   | 221 us   |
+| 4 KB, 8 threads | **213 us** | 3.3 ms  | 337 us   | 245 us   |
 
 Run benchmarks yourself with `cargo bench`.
 
@@ -142,7 +151,8 @@ Run benchmarks yourself with `cargo bench`.
 
 - **Hot path = zero synchronization.** Per-thread freelists are single-owner, no atomics, no syscalls.
 - **Lock-free over locks.** Shared per-node heaps use Treiber stacks with CAS, not mutexes.
-- **Batch everything.** Drain and refill operations move 32 objects at once, amortizing CAS cost.
+- **Batch everything.** Drain and refill operations move objects in bulk via chain-insert, amortizing CAS cost.
+- **Adaptive caching.** Per-thread cache thresholds scale with object size -- small objects cache up to 2048 items, large objects cache 64.
 - **Intrusive data structures.** Free blocks store their `next` pointer in the freed memory itself -- zero extra overhead.
 - **Explicit safety.** Every `unsafe` block carries a `// SAFETY:` comment. `NonNull<T>` over `*mut T`. `UnsafeCell` for interior mutability.
 

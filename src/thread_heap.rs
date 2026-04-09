@@ -5,7 +5,7 @@ use std::ptr::NonNull;
 use crate::freelist::ThreadFreelist;
 use crate::heap::GlobalHeap;
 use crate::platform;
-use crate::size_class::NUM_SIZE_CLASSES;
+use crate::size_class::{self, NUM_SIZE_CLASSES};
 
 // ---------------------------------------------------------------------------
 // Large object cache — per-thread, avoids mmap/munmap on hot paths
@@ -142,13 +142,44 @@ impl LargeCache {
 // PerThreadHeap
 // ---------------------------------------------------------------------------
 
-/// Maximum objects cached per size class in a per-thread freelist before
-/// draining excess to the per-node heap.
-pub const MAX_THREAD_CACHE: usize = 256;
-
 /// Number of objects to attempt to refill from the per-node heap when the
 /// per-thread freelist is empty.
 pub const REFILL_BATCH: usize = 64;
+
+/// Maximum objects cached per size class in a per-thread freelist before
+/// draining excess to the per-node heap.
+///
+/// Scales with object size: small objects (8–64 B) cache up to 2048 items,
+/// while large objects (≥ 16 KB) cache only 64.  This keeps memory overhead
+/// bounded while avoiding excessive drain/refill for bulk allocation patterns.
+const MAX_CACHE_TABLE: [usize; NUM_SIZE_CLASSES] = build_max_cache_table();
+
+const fn build_max_cache_table() -> [usize; NUM_SIZE_CLASSES] {
+    let mut table = [0usize; NUM_SIZE_CLASSES];
+    let mut i = 0;
+    while i < NUM_SIZE_CLASSES {
+        let obj = size_class::SIZE_CLASSES[i];
+        let bag = size_class::bag_size_for_class(i);
+        let per_bag = bag / obj;
+        // Two bags' worth, clamped to [64, 2048].
+        let raw = per_bag * 2;
+        table[i] = if raw < 64 {
+            64
+        } else if raw > 2048 {
+            2048
+        } else {
+            raw
+        };
+        i += 1;
+    }
+    table
+}
+
+/// Returns the maximum per-thread cache size for a given size class.
+#[inline]
+pub fn max_thread_cache(class_idx: usize) -> usize {
+    MAX_CACHE_TABLE[class_idx]
+}
 
 /// Per-thread heap: one [`ThreadFreelist`] per size class, plus the owning
 /// node id.  Accessed exclusively by a single thread (no synchronisation).

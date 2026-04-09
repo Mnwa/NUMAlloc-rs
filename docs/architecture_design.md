@@ -97,8 +97,8 @@ graph LR
 
 - **Each region is bound** to its corresponding physical node via the `mbind` syscall. Region 1 → Node 1, Region 2 → Node 2, etc.
 - **Node lookup is a division**: given a pointer `p`, its origin node = `(p - heap_base) / region_size`. No syscall needed.
-- **Small objects** (< 512 KB) are managed in BiBOP-style bags of 32 KB, each holding objects of one size class.
-- **Big objects** (≥ 512 KB) are allocated sequentially from the big-object sub-region and aligned to 32 KB.
+- **Small objects** (up to 256 KB) are managed in BiBOP-style bags (32 KB for objects up to 16 KB; larger classes use a bag equal to the object size), each holding objects of one size class.
+- **Big objects** (> 256 KB) are backed by individual `mmap` regions with a per-thread large object cache to avoid repeated syscalls.
 
 ### Per-Thread and Per-Node Heaps
 
@@ -177,8 +177,8 @@ This is the mechanism that eliminates remote accesses during both allocation and
 ```mermaid
 flowchart TD
     REQ([malloc request]) --> SIZE{Object size?}
-    SIZE -->|"Small (< 512KB)"| PTH["Check PerThreadHeap<br/>freelist for this size class"]
-    SIZE -->|"Big (≥ 512KB)"| BIG["Check PerNodeHeap<br/>big-object freelist"]
+    SIZE -->|"Small (≤ 256KB)"| PTH["Check PerThreadHeap<br/>freelist for this size class"]
+    SIZE -->|"Big (> 256KB)"| BIG["Check PerThreadHeap<br/>large object cache"]
 
     PTH --> AVAIL1{Objects<br/>available?}
     AVAIL1 -->|Yes| RETURN1([Return object<br/>from thread cache])
@@ -209,7 +209,7 @@ flowchart TD
 
     COMPARE -->|"Yes — local object"| LOCAL_SIZE{Object size?}
     LOCAL_SIZE -->|Small| LOCAL_THREAD["Return to PerThreadHeap<br/>freelist (no lock needed)"]
-    LOCAL_SIZE -->|Big| LOCAL_NODE["Return to PerNodeHeap<br/>big-object freelist"]
+    LOCAL_SIZE -->|Big| LOCAL_NODE["Cache in PerThreadHeap<br/>large object cache"]
 
     COMPARE -->|"No — remote object"| REMOTE["Return to ORIGIN node's<br/>PerNodeHeap freelist<br/>(lock required)"]
 
@@ -296,12 +296,12 @@ When a thread needs objects from the per-node heap, it grabs an **entire sub-lis
 
 NUMAlloc keeps all metadata local to the node that uses it:
 
-| Metadata               | Location                                    | Size                                          |
-|------------------------|---------------------------------------------|-----------------------------------------------|
-| `PerBagSizeInfo`       | Separate area, normal pages (via `madvise`) | 8 bytes per 32 KB bag                         |
-| `PerBigObjectSizeInfo` | Linked list within each node's region       | Variable (size + availability per big object) |
-| `PerThreadHeap`        | Thread-local storage, on thread's node      | One freelist head per size class              |
-| `PerNodeHeap`          | Within each node's region                   | Freelists + circular array of sub-lists       |
+| Metadata               | Location                                    | Size                                                   |
+|------------------------|---------------------------------------------|--------------------------------------------------------|
+| `PerBagSizeInfo`       | Separate area, normal pages (via `madvise`) | 8 bytes per bag (32 KB–256 KB depending on size class) |
+| `PerBigObjectSizeInfo` | Linked list within each node's region       | Variable (size + availability per big object)          |
+| `PerThreadHeap`        | Thread-local storage, on thread's node      | One freelist head per size class                       |
+| `PerNodeHeap`          | Within each node's region                   | Freelists + circular array of sub-lists                |
 
 Local metadata means that even metadata access is a local memory operation — no hidden remote accesses from bookkeeping.
 
@@ -335,7 +335,7 @@ sequenceDiagram
 
 ## 11. Large Object Cache
 
-Objects larger than 16 KB bypass the bag-based small-object path and are backed by individual `mmap` regions. Without caching, every large alloc/dealloc pair incurs two syscalls (`mmap` + `munmap`), which costs 1--2 microseconds per pair.
+Objects larger than 256 KB bypass the bag-based small-object path and are backed by individual `mmap` regions. Without caching, every large alloc/dealloc pair incurs two syscalls (`mmap` + `munmap`), which costs 1--2 microseconds per pair.
 
 ### Architecture
 
@@ -365,14 +365,16 @@ flowchart TD
 
 ### Impact
 
-The large object cache eliminates syscall overhead for repeated large allocations:
+The large object cache eliminates syscall overhead for repeated large allocations. Combined with the extended size classes (up to 256 KB), objects that previously required individual `mmap` regions now go through the fast freelist path:
 
-| Benchmark             | Before            | After             | Improvement |
-|-----------------------|-------------------|-------------------|-------------|
-| alloc_dealloc 64 KB   | 1.9 microseconds  | 7.7 ns            | **247x**    |
-| alloc_dealloc 256 KB  | 2.15 microseconds | 8.4 ns            | **256x**    |
-| bulk 1000x 64 KB      | 3.0 ms            | 18.4 microseconds | **163x**    |
-| realloc 4 KB to 64 KB | 2.38 microseconds | 78 ns             | **31x**     |
+| Benchmark                  | Before (mmap)     | After             | Improvement |
+|----------------------------|-------------------|-------------------|-------------|
+| alloc_dealloc 64 KB        | 1.9 microseconds  | 7.7 ns            | **247x**    |
+| alloc_dealloc 256 KB       | 2.15 microseconds | 8.4 ns            | **256x**    |
+| bulk 1000x 64 KB           | 3.0 ms            | 57.2 microseconds | **52x**     |
+| bulk 1000x 256 KB          | 3.94 ms           | 37.4 microseconds | **105x**    |
+| page-aligned 64 KB (×100)  | 378 microseconds  | 2.7 microseconds  | **140x**    |
+| realloc 4 KB to 64 KB      | 2.38 microseconds | 78 ns             | **31x**     |
 
 ---
 
@@ -407,11 +409,12 @@ numalloc scales well with thread count due to its lock-free per-node Treiber sta
 
 ### Bulk alloc+free (1000 items, single-threaded)
 
-| Size  | numalloc              | system            | mimalloc             | jemalloc          |
-|-------|-----------------------|-------------------|----------------------|-------------------|
-| 64 B  | 15.8 microseconds     | 17.0 microseconds | **8.0 microseconds** | 17.9 microseconds |
-| 4 KB  | **23.8 microseconds** | 87.7 microseconds | 24.2 microseconds    | 47.6 microseconds |
-| 64 KB | **18.4 microseconds** | 705 microseconds  | 43.0 microseconds    | 509 microseconds  |
+| Size   | numalloc               | system            | mimalloc             | jemalloc          |
+|--------|------------------------|-------------------|----------------------|-------------------|
+| 64 B   | **8.2 microseconds**   | 16.8 microseconds | 8.0 microseconds     | 17.1 microseconds |
+| 4 KB   | **24.3 microseconds**  | 88.1 microseconds | 24.4 microseconds    | 46.5 microseconds |
+| 64 KB  | **57.2 microseconds**  | 709 microseconds  | 43.5 microseconds    | 508 microseconds  |
+| 256 KB | **37.4 microseconds**  | 704 microseconds  | 155 microseconds     | 545 microseconds  |
 
 ### NUMA-specific results (8-node Intel Xeon, 128 cores)
 

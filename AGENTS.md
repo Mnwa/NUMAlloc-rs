@@ -16,8 +16,8 @@ Thread (lock-free)  ->  Node (lock-free CAS)  ->  Region (atomic bump)  ->  OS m
 
 1. **Per-thread freelist** (`ThreadFreelist`) — single-owner, zero synchronization, LIFO. Fastest path.
 2. **Per-node freelist** (`TreiberStack`) — lock-free Treiber stack shared by all threads on the same NUMA node. Used for refills and remote deallocations.
-3. **Region bump allocator** (`NodeRegion`) — atomic `fetch_add` to carve 32 KB bags from a contiguous pre-mapped region bound to a physical node.
-4. **Direct mmap** — for objects > 16 KB. Each large allocation gets its own mapping with a prepended `LargeHeader`.
+3. **Region bump allocator** (`NodeRegion`) — atomic CAS to carve bags (32 KB for small classes, up to 256 KB for larger classes) from a contiguous pre-mapped region bound to a physical node. Bag base is aligned to the bag size for correct object alignment.
+4. **Direct mmap** — for objects > 256 KB. Each large allocation gets its own mapping with a prepended `LargeHeader`. Per-thread large object cache avoids repeated syscalls.
 
 ### Memory Layout
 
@@ -33,27 +33,28 @@ A single contiguous virtual region is mapped at init (`128 MB * num_nodes`). Eac
 | `src/node_heap.rs`            | `PerNodeHeap` — lock-free Treiber stacks per size class                    |
 | `src/thread_heap.rs`          | `PerThreadHeap` — single-threaded freelists per size class                 |
 | `src/freelist.rs`             | `FreeBlock`, `TreiberStack` (lock-free), `ThreadFreelist` (single-thread)  |
-| `src/size_class.rs`           | 12 power-of-2 size classes (8 B – 16 KB), bag math                         |
+| `src/size_class.rs`           | 16 power-of-2 size classes (8 B – 256 KB), variable bag sizing              |
 | `src/platform.rs`             | OS abstraction: mmap, munmap, mbind, sched_setaffinity, topology detection |
 | `docs/architecture_design.md` | Full design document with diagrams and benchmarks                          |
 
-### Allocation Path (Small Object, <= 16 KB)
+### Allocation Path (Small Object, <= 256 KB)
 
-1. Look up size class index.
+1. Look up size class index (16 power-of-2 classes from 8 B to 256 KB).
 2. Try per-thread freelist → return if hit.
-3. Try per-node Treiber stack → batch-pop up to `REFILL_BATCH` (32) objects → return one.
-4. Bump-allocate a fresh 32 KB bag from the node region → carve objects → push to per-thread freelist → return one.
+3. Try per-node Treiber stack → pop up to `REFILL_BATCH` (64) objects, chain-insert into thread freelist → return one.
+4. Bump-allocate a fresh bag from the node region (32 KB for classes ≤ 16 KB, object-sized for larger) → carve objects → push to per-thread freelist → return one.
+5. If region exhausted → fall back to mmap (large object path).
 
 ### Deallocation Path
 
 1. Determine origin node via O(1) pointer arithmetic.
-2. If **local** (same node as current thread): push to per-thread freelist. If count exceeds `MAX_THREAD_CACHE` (64), drain cold objects to per-node Treiber stack.
+2. If **local** (same node as current thread): push to per-thread freelist. If count exceeds `max_thread_cache(class)` (64–2048 depending on class), drain cold objects to per-node Treiber stack.
 3. If **remote** (different node): push directly to origin node's per-node Treiber stack (lock-free CAS).
 
-### Large Object Path (> 16 KB)
+### Large Object Path (> 256 KB)
 
-- **Alloc**: `mmap` with alignment padding + `LargeHeader` prepended.
-- **Dealloc**: read header, `munmap` the original region.
+- **Alloc**: check per-thread large cache (exact/close-size match) → cache miss: `mmap` with alignment padding + `LargeHeader` prepended.
+- **Dealloc**: read header → try to cache for reuse (with `madvise` for regions ≥ 512 KB) → cache full: `munmap`.
 - **Realloc**: alloc new → copy → dealloc old (no in-place growth).
 
 ## Design Decisions
@@ -68,7 +69,13 @@ Lock-free CAS scales linearly with thread count. No priority inversion, no convo
 Avoids bootstrap recursion: the NUMA allocator cannot allocate from itself during initialization.
 
 ### Why batch drain/refill
-Amortizes CAS cost across 32 objects instead of one. Keeps hot objects in thread-local cache.
+Drain uses `push_chain` (single CAS for entire chain). Refill pops individually but chain-inserts into the thread freelist in O(1). Keeps hot objects in thread-local cache.
+
+### Why dynamic per-class cache thresholds
+Small objects (8–64 B) cache up to 2048 items; large objects (≥ 16 KB) cache 64. This avoids excessive drain/refill cycles in bulk allocation patterns while bounding memory overhead for large classes.
+
+### Why variable bag sizes
+Classes ≤ 16 KB use the standard 32 KB bag (multiple objects per bag). Classes from 32 KB to 256 KB use bag size = object size (one object per bag). This keeps medium objects on the fast freelist path instead of falling through to expensive mmap.
 
 ### Why intrusive freelists
 Free blocks store their `next` pointer in the freed memory itself (`UnsafeCell<Option<NonNull<FreeBlock>>>`). Zero extra memory overhead for bookkeeping.
@@ -88,7 +95,7 @@ Distributes memory pressure evenly across NUMA nodes. Avoids hotspotting on node
 
 ### `cargo test`
 - All tests must pass before merge: `cargo test`.
-- Tests cover: all 12 size classes, alignment, reuse, bulk allocation, multi-threaded allocation, cross-thread deallocation, realloc, alloc_zeroed, and concurrent stress.
+- Tests cover: all 16 size classes, alignment, reuse, bulk allocation, multi-threaded allocation, cross-thread deallocation, realloc, alloc_zeroed, and concurrent stress.
 
 ## Safety Guidelines
 

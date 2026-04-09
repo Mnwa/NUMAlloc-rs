@@ -3,7 +3,6 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::node_heap::PerNodeHeap;
 use crate::platform;
-use crate::size_class::BAG_SIZE;
 
 /// Maximum number of NUMA nodes supported.
 pub const MAX_NODES: usize = 8;
@@ -42,12 +41,18 @@ impl NodeRegion {
         Self::new(NonNull::dangling(), 0)
     }
 
-    /// Bump-allocate one 32 KB bag.  Returns `None` on exhaustion.
+    /// Bump-allocate a bag of the given `bag_size`.  The returned pointer is
+    /// aligned to `bag_size` (which must be a power of two) so that objects
+    /// carved from it inherit the alignment.  Returns `None` on exhaustion.
     /// This is lock-free (atomic CAS retry loop).
-    pub fn allocate_bag(&self) -> Option<NonNull<u8>> {
+    pub fn allocate_bag(&self, bag_size: usize) -> Option<NonNull<u8>> {
+        debug_assert!(bag_size.is_power_of_two());
+        let align_mask = bag_size - 1;
         loop {
             let offset = self.bump.load(Ordering::Relaxed);
-            let new_offset = offset + BAG_SIZE;
+            // Align up to bag_size boundary.
+            let aligned = (offset + align_mask) & !align_mask;
+            let new_offset = aligned + bag_size;
             if new_offset > self.size {
                 return None;
             }
@@ -56,7 +61,9 @@ impl NodeRegion {
                 .compare_exchange_weak(offset, new_offset, Ordering::Relaxed, Ordering::Relaxed)
                 .is_ok()
             {
-                return Some(unsafe { NonNull::new_unchecked(self.base.as_ptr().add(offset)) });
+                // SAFETY: `aligned` is within `[0, self.size)` and `base` is
+                // valid for `self.size` bytes.
+                return Some(unsafe { NonNull::new_unchecked(self.base.as_ptr().add(aligned)) });
             }
         }
     }

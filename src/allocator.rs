@@ -7,8 +7,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use crate::freelist::FreeBlock;
 use crate::heap::GlobalHeap;
 use crate::platform;
-use crate::size_class::{self, BAG_SIZE, SMALL_LIMIT};
-use crate::thread_heap::{MADVISE_THRESHOLD, MAX_THREAD_CACHE, PerThreadHeap, REFILL_BATCH};
+use crate::size_class::{self, SMALL_LIMIT};
+use crate::thread_heap::{MADVISE_THRESHOLD, PerThreadHeap, REFILL_BATCH, max_thread_cache};
 
 // ---------------------------------------------------------------------------
 // Per-thread heap guard (cleanup on thread exit)
@@ -182,26 +182,35 @@ unsafe impl GlobalAlloc for NumaAlloc {
             return block.as_ptr().cast();
         }
 
-        // 2. Refill from per-node freelist (lock-free pops).
+        // 2. Refill from per-node freelist.
+        //    Pop individually (each is one CAS) but batch-insert into the
+        //    thread freelist via push_chain for O(1) insertion.
         let node_fl = heap.node_region(node).node_heap.freelist(class_idx);
-        let mut refilled = 0usize;
-        while refilled < REFILL_BATCH {
-            let Some(b) = node_fl.pop() else { break };
-            fl.push(b);
-            refilled += 1;
-        }
-        if refilled > 0 {
+        if let Some(first) = node_fl.pop() {
+            unsafe { first.as_ref().write_next(None) };
+            let mut tail = first;
+            let mut count = 1usize;
+            while count < REFILL_BATCH {
+                let Some(b) = node_fl.pop() else { break };
+                unsafe { b.as_ref().write_next(None) };
+                unsafe { tail.as_ref().write_next(Some(b)) };
+                tail = b;
+                count += 1;
+            }
+            fl.push_chain(first, tail, count);
             return fl.pop().unwrap().as_ptr().cast();
         }
 
         // 3. Allocate a new bag and carve it into objects.
         let region = heap.node_region(node);
-        let Some(bag) = region.allocate_bag() else {
-            return std::ptr::null_mut();
+        let bag_size = size_class::bag_size_for_class(class_idx);
+        let Some(bag) = region.allocate_bag(bag_size) else {
+            // Region exhausted — fall back to mmap for this allocation.
+            return unsafe { self.alloc_large(layout) };
         };
 
         let obj_size = size_class::size_for_class(class_idx);
-        let count = BAG_SIZE / obj_size;
+        let count = bag_size / obj_size;
         for i in 0..count {
             let obj =
                 unsafe { NonNull::new_unchecked(bag.as_ptr().add(i * obj_size) as *mut FreeBlock) };
@@ -249,8 +258,9 @@ unsafe impl GlobalAlloc for NumaAlloc {
             fl.push(block);
 
             // Drain excess to per-node heap.
-            if fl.count() > MAX_THREAD_CACHE
-                && let Some((head, tail, _)) = fl.drain(MAX_THREAD_CACHE / 2)
+            let cache_limit = max_thread_cache(class_idx);
+            if fl.count() > cache_limit
+                && let Some((head, tail, _)) = fl.drain(cache_limit / 2)
             {
                 heap.node_region(current_node)
                     .node_heap

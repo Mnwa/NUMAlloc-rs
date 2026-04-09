@@ -197,6 +197,23 @@ impl ThreadFreelist {
         Some(block)
     }
 
+    /// Push a chain of `count` blocks (from `first` through `last`) to the
+    /// head of the freelist in O(1).  `last.next` must be `None`.
+    #[inline]
+    pub fn push_chain(
+        &mut self,
+        first: NonNull<FreeBlock>,
+        last: NonNull<FreeBlock>,
+        chain_count: usize,
+    ) {
+        unsafe { last.as_ref().write_next(self.head) };
+        if self.head.is_none() {
+            self.tail = Some(last);
+        }
+        self.head = Some(first);
+        self.count += chain_count;
+    }
+
     #[inline]
     pub fn count(&self) -> usize {
         self.count
