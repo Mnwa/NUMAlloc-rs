@@ -1,5 +1,5 @@
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::Cell;
+use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -11,18 +11,28 @@ use crate::size_class::{self, BAG_SIZE, SMALL_LIMIT};
 use crate::thread_heap::{MAX_THREAD_CACHE, PerThreadHeap, REFILL_BATCH};
 
 // ---------------------------------------------------------------------------
-// Global state
+// Per-instance thread-local storage
 // ---------------------------------------------------------------------------
 
-static GLOBAL_HEAP: OnceLock<GlobalHeap> = OnceLock::new();
+/// Maximum number of independent [`NumaAlloc`] instances that a single thread
+/// can use concurrently.  Four is generous for practical use; the common case
+/// is one (the global allocator).
+const MAX_ALLOCATORS: usize = 4;
 
-/// Round-robin counter for assigning threads to NUMA nodes.
-static NEXT_NODE: AtomicUsize = AtomicUsize::new(0);
+/// `(allocator identity, thread-heap pointer)` — one slot per allocator
+/// instance that a thread interacts with.
+type ThEntry = (usize, Option<NonNull<PerThreadHeap>>);
 
 thread_local! {
-    /// Pointer to the current thread's [`PerThreadHeap`].
-    /// Allocated via the **system** allocator to avoid bootstrap recursion.
-    static TH_PTR: Cell<Option<NonNull<PerThreadHeap>>> = const { Cell::new(None) };
+    /// Per-thread cache mapping allocator identity (address) to the thread's
+    /// [`PerThreadHeap`] for that allocator.
+    ///
+    /// # Safety
+    /// `UnsafeCell` is used instead of `Cell` to avoid copying the array on
+    /// every access.  Thread-locals are inherently single-threaded, so
+    /// unsynchronised access is safe.
+    static TH_HEAPS: UnsafeCell<[ThEntry; MAX_ALLOCATORS]> =
+        const { UnsafeCell::new([(0, None); MAX_ALLOCATORS]) };
 }
 
 // ---------------------------------------------------------------------------
@@ -41,14 +51,24 @@ struct LargeHeader {
 
 /// NUMA-aware memory allocator.
 ///
+/// Each instance owns an independent [`GlobalHeap`] and round-robin counter,
+/// so multiple allocators do not compete for the same resources.
+///
 /// Use as `#[global_allocator]` or call [`GlobalAlloc`] methods directly.
 ///
 /// ```rust,ignore
 /// #[global_allocator]
 /// static ALLOC: numalloc::NumaAlloc = numalloc::NumaAlloc::new();
 /// ```
-pub struct NumaAlloc;
+pub struct NumaAlloc {
+    heap: OnceLock<GlobalHeap>,
+    /// Round-robin counter for assigning threads to NUMA nodes.
+    next_node: AtomicUsize,
+}
 
+// Safety: `OnceLock` and `AtomicUsize` are both `Send + Sync`.  The
+// `GlobalHeap` stored inside the `OnceLock` is also `Send + Sync` (see
+// heap.rs).
 unsafe impl Send for NumaAlloc {}
 unsafe impl Sync for NumaAlloc {}
 
@@ -60,29 +80,70 @@ impl Default for NumaAlloc {
 
 impl NumaAlloc {
     pub const fn new() -> Self {
-        Self
+        Self {
+            heap: OnceLock::new(),
+            next_node: AtomicUsize::new(0),
+        }
     }
 
-    fn heap() -> &'static GlobalHeap {
-        GLOBAL_HEAP.get_or_init(|| {
+    fn heap(&self) -> &GlobalHeap {
+        self.heap.get_or_init(|| {
             let topo = platform::detect_topology();
             GlobalHeap::new(topo.num_nodes).expect("numalloc: failed to mmap heap region")
         })
     }
 
-    /// Obtain (or lazily create) the calling thread's [`PerThreadHeap`].
+    /// Look up the current thread's node id for this allocator, without
+    /// creating a thread heap if one doesn't exist yet.
+    fn try_get_node(&self) -> Option<usize> {
+        let key = self as *const Self as usize;
+        TH_HEAPS
+            .try_with(|cell| {
+                // Safety: single-threaded access to thread-local.
+                let entries = unsafe { &*cell.get() };
+                for &(k, v) in entries.iter() {
+                    if k == key {
+                        return v.map(|nn| unsafe { nn.as_ref().node_id });
+                    }
+                }
+                None
+            })
+            .ok()
+            .flatten()
+    }
+
+    /// Obtain (or lazily create) the calling thread's [`PerThreadHeap`] for
+    /// this allocator instance.
     ///
     /// The heap struct is allocated from the **system** allocator so that the
     /// very first allocation of a new thread doesn't recurse into NUMAlloc.
-    fn thread_heap() -> NonNull<PerThreadHeap> {
-        // Fast path: try_with avoids panicking when TLS is being destroyed.
-        if let Ok(Some(ptr)) = TH_PTR.try_with(Cell::get) {
-            return ptr;
+    #[inline]
+    fn thread_heap(&self) -> NonNull<PerThreadHeap> {
+        let key = self as *const Self as usize;
+
+        // Fast path: look up in per-thread cache.
+        // Safety: thread-locals are single-threaded; UnsafeCell access is safe.
+        if let Ok(Some(nn)) = TH_HEAPS.try_with(|cell| {
+            // Safety: single-threaded access to thread-local.
+            let entries = unsafe { &*cell.get() };
+            for &(k, v) in entries.iter() {
+                if k == key {
+                    return v;
+                }
+            }
+            None
+        }) {
+            return nn;
         }
 
-        // Slow path — first allocation on this thread.
-        let heap = Self::heap();
-        let node = NEXT_NODE.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
+        // Slow path — first allocation on this thread for this allocator.
+        self.thread_heap_slow(key)
+    }
+
+    #[cold]
+    fn thread_heap_slow(&self, key: usize) -> NonNull<PerThreadHeap> {
+        let heap = self.heap();
+        let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
 
         // Bind thread to its NUMA node (no-op on non-Linux).
         platform::bind_thread_to_node(node);
@@ -97,7 +158,20 @@ impl NumaAlloc {
             nn.as_ptr().write(PerThreadHeap::new(node));
         }
 
-        let _ = TH_PTR.try_with(|c| c.set(Some(nn)));
+        let _ = TH_HEAPS.try_with(|cell| {
+            // Safety: single-threaded access to thread-local.
+            let entries = unsafe { &mut *cell.get() };
+            // Find an empty slot.
+            for entry in entries.iter_mut() {
+                if entry.1.is_none() {
+                    *entry = (key, Some(nn));
+                    return;
+                }
+            }
+            // All slots full — overwrite the first (unlikely with MAX_ALLOCATORS=4).
+            entries[0] = (key, Some(nn));
+        });
+
         nn
     }
 }
@@ -108,7 +182,7 @@ unsafe impl GlobalAlloc for NumaAlloc {
 
         // --- large object path ---
         if effective_size > SMALL_LIMIT {
-            return unsafe { alloc_large(layout) };
+            return unsafe { self.alloc_large(layout) };
         }
 
         let class_idx = match size_class::size_class_index(effective_size) {
@@ -116,8 +190,8 @@ unsafe impl GlobalAlloc for NumaAlloc {
             None => return std::ptr::null_mut(),
         };
 
-        let th = unsafe { Self::thread_heap().as_mut() };
-        let heap = Self::heap();
+        let th = unsafe { self.thread_heap().as_mut() };
+        let heap = self.heap();
         let node = th.node_id;
         let fl = th.freelist_mut(class_idx);
 
@@ -165,7 +239,7 @@ unsafe impl GlobalAlloc for NumaAlloc {
             return;
         }
 
-        let heap = Self::heap();
+        let heap = self.heap();
 
         if !heap.is_owned(ptr) {
             // Pointer not from our region — treat as large (mmap'd).
@@ -183,7 +257,7 @@ unsafe impl GlobalAlloc for NumaAlloc {
             None => return,
         };
 
-        let th = unsafe { Self::thread_heap().as_mut() };
+        let th = unsafe { self.thread_heap().as_mut() };
         let current_node = th.node_id;
         let block = ptr.cast::<FreeBlock>();
 
@@ -264,45 +338,46 @@ unsafe impl GlobalAlloc for NumaAlloc {
 // Large-object helpers (mmap/munmap)
 // ---------------------------------------------------------------------------
 
-/// Allocate a large object backed by its own `mmap` region.
-///
-/// A [`LargeHeader`] is placed just before the returned pointer so that
-/// [`dealloc_large`] can recover the original mmap address and size.
-unsafe fn alloc_large(layout: Layout) -> *mut u8 {
-    let page_size = platform::page_size();
-    let header_size = std::mem::size_of::<LargeHeader>();
-    let align = layout.align().max(std::mem::align_of::<LargeHeader>());
+impl NumaAlloc {
+    /// Allocate a large object backed by its own `mmap` region.
+    ///
+    /// A [`LargeHeader`] is placed just before the returned pointer so that
+    /// [`dealloc_large`] can recover the original mmap address and size.
+    unsafe fn alloc_large(&self, layout: Layout) -> *mut u8 {
+        let page_size = platform::page_size();
+        let header_size = std::mem::size_of::<LargeHeader>();
+        let align = layout.align().max(std::mem::align_of::<LargeHeader>());
 
-    // Over-allocate to guarantee alignment: header + padding + payload.
-    let alloc_size = header_size + (align - 1) + layout.size();
-    let alloc_size = (alloc_size + page_size - 1) & !(page_size - 1);
+        // Over-allocate to guarantee alignment: header + padding + payload.
+        let alloc_size = header_size + (align - 1) + layout.size();
+        let alloc_size = (alloc_size + page_size - 1) & !(page_size - 1);
 
-    let Some(raw) = (unsafe { platform::mmap_anonymous(alloc_size) }) else {
-        return std::ptr::null_mut();
-    };
+        let Some(raw) = (unsafe { platform::mmap_anonymous(alloc_size) }) else {
+            return std::ptr::null_mut();
+        };
 
-    // Place payload at the first correctly-aligned address after the header.
-    let payload_addr = (raw.as_ptr() as usize + header_size + align - 1) & !(align - 1);
+        // Place payload at the first correctly-aligned address after the header.
+        let payload_addr = (raw.as_ptr() as usize + header_size + align - 1) & !(align - 1);
 
-    // Write the header immediately before payload.
-    let header_ptr = (payload_addr - header_size) as *mut LargeHeader;
-    unsafe {
-        (*header_ptr).original_ptr = raw;
-        (*header_ptr).alloc_size = alloc_size;
-    }
-
-    // Optionally bind to the current thread's NUMA node.
-    if let Ok(Some(th)) = TH_PTR.try_with(Cell::get) {
-        let node = unsafe { th.as_ref().node_id };
+        // Write the header immediately before payload.
+        let header_ptr = (payload_addr - header_size) as *mut LargeHeader;
         unsafe {
-            platform::bind_to_node(raw, alloc_size, node);
+            (*header_ptr).original_ptr = raw;
+            (*header_ptr).alloc_size = alloc_size;
         }
-    }
 
-    payload_addr as *mut u8
+        // Optionally bind to the current thread's NUMA node.
+        if let Some(node) = self.try_get_node() {
+            unsafe {
+                platform::bind_to_node(raw, alloc_size, node);
+            }
+        }
+
+        payload_addr as *mut u8
+    }
 }
 
-/// Free a large object previously returned by [`alloc_large`].
+/// Free a large object previously returned by [`NumaAlloc::alloc_large`].
 ///
 /// # Safety
 /// `ptr` must have been returned by `alloc_large`.

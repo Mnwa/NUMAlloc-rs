@@ -10,7 +10,16 @@ documentation = "https://docs.rs/numalloc"
 authors = ["Mikhail Panfilov <mikhail@panfilov.biz>"]
 readme = "README.md"
 keywords = ["allocator", "numa", "memory", "performance", "lock-free"]
-categories = ["memory-management", "no-std", "concurrency"]
+categories = ["memory-management", "concurrency"]
 
 [dependencies]
 libc = "0.2"
+
+[dev-dependencies]
+criterion = { version = "0.8", features = ["html_reports"] }
+mimalloc = { version = "0.1", default-features = false }
+tikv-jemallocator = "0.6"
+
+[[bench]]
+name = "allocator_comparison"
+harness = false
