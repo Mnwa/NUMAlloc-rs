@@ -50,10 +50,7 @@ impl Drop for ThreadHeapSlot {
             // destroyed before statics.
             unsafe {
                 th_ptr.as_mut().drain_to_node_heap();
-                System.dealloc(
-                    th_ptr.as_ptr() as *mut u8,
-                    Layout::new::<PerThreadHeap>(),
-                );
+                System.dealloc(th_ptr.as_ptr() as *mut u8, Layout::new::<PerThreadHeap>());
             }
         }
     }
