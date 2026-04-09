@@ -1,0 +1,405 @@
+# NUMAlloc: Architecture Design Document
+
+## 1. Overview
+
+NUMAlloc is a replacement memory allocator purpose-built for Non-Uniform Memory Access (NUMA) machines. It intercepts standard `malloc`/`free` calls via `LD_PRELOAD`, so applications need zero source-code changes. The allocator is built around three core ideas:
+
+1. **Binding-based memory management** — threads and memory regions are pinned to NUMA nodes at startup.
+2. **Origin-aware allocation and deallocation** — every heap object carries an implicit "origin node," and freed objects always return to their origin node's freelist.
+3. **Incremental sharing of huge pages** — threads on the same node share transparent huge pages (THP) in small increments, combining TLB-miss reduction with low memory waste.
+
+The result: 15.7% faster than mimalloc, 20.9% faster than glibc, with 9× fewer remote memory accesses and 18× fewer TLB misses on average across 25 benchmarks.
+
+---
+
+## 2. The Problem: Why NUMA Needs a Dedicated Allocator
+
+### What is NUMA?
+
+In a NUMA machine, each CPU socket (node) has its own local memory. Accessing local memory is fast; accessing another node's memory ("remote access") is 2–3× slower. A typical server might have 2–8 nodes, each with 16–32 cores.
+
+### Why existing allocators fail on NUMA
+
+Traditional allocators (glibc, TCMalloc, jemalloc, mimalloc) were designed for uniform memory. They cause four categories of NUMA performance problems:
+
+| Problem | Root cause | Impact |
+|---------|-----------|--------|
+| **Expensive node lookups** | Checking which node a thread runs on requires a syscall (~10,000 cycles) | Allocators avoid checking, so they guess wrong |
+| **Blind deallocation** | Freed objects go to the deallocating thread's cache regardless of which node the memory belongs to | Reuse of freed memory triggers remote accesses |
+| **Thread migration** | The OS can move a thread to a different node mid-execution | All of a thread's "local" memory becomes remote overnight |
+| **No huge page coordination** | Allocators either ignore THP or give each thread a private 2MB superblock | Wasted memory or missed TLB optimization |
+
+NUMAlloc tackles all four.
+
+---
+
+## 3. High-Level Architecture
+
+The system is composed of four layers, from hardware up to the application:
+
+```mermaid
+graph TB
+    subgraph Application Layer
+        A[Application Code<br/>malloc / free / realloc]
+    end
+
+    subgraph NUMAlloc Interceptor
+        B[LD_PRELOAD Interception<br/>Redirects all alloc/dealloc calls]
+    end
+
+    subgraph NUMAlloc Core
+        C[Thread Binding Manager]
+        D[Origin-Aware Allocator]
+        E[Incremental Sharing Engine]
+        F[Object Movement Engine]
+    end
+
+    subgraph OS / Hardware
+        G[mbind / set_mempolicy syscalls]
+        H[NUMA Hardware Topology<br/>Nodes, Cores, Interconnects]
+    end
+
+    A --> B
+    B --> C
+    B --> D
+    B --> E
+    C --> G
+    D --> F
+    E --> G
+    G --> H
+```
+
+---
+
+## 4. Heap Layout
+
+NUMAlloc's heap is a single large contiguous virtual memory region, divided equally among all NUMA nodes. This layout is the foundation for every other design decision.
+
+```mermaid
+graph LR
+    subgraph "Contiguous Virtual Memory Region"
+        subgraph Node_1["Node 1 Region"]
+            S1[Small Objects<br/>bpSmall pointer]
+            B1[Big Objects<br/>bpBig pointer]
+        end
+        subgraph Node_2["Node 2 Region"]
+            S2[Small Objects<br/>bpSmall pointer]
+            B2[Big Objects<br/>bpBig pointer]
+        end
+        subgraph Node_N["Node N Region"]
+            SN[Small Objects<br/>bpSmall pointer]
+            BN[Big Objects<br/>bpBig pointer]
+        end
+    end
+```
+
+### Key properties
+
+- **Each region is bound** to its corresponding physical node via the `mbind` syscall. Region 1 → Node 1, Region 2 → Node 2, etc.
+- **Node lookup is a division**: given a pointer `p`, its origin node = `(p - heap_base) / region_size`. No syscall needed.
+- **Small objects** (< 512 KB) are managed in BiBOP-style bags of 32 KB, each holding objects of one size class.
+- **Big objects** (≥ 512 KB) are allocated sequentially from the big-object sub-region and aligned to 32 KB.
+
+### Per-Thread and Per-Node Heaps
+
+Each thread gets a private per-thread heap (no locks needed). Each node has a shared per-node heap (lock-protected, but accessed less frequently).
+
+```mermaid
+graph TD
+    subgraph "Node 1"
+        direction TB
+        T1["Thread 0<br/>PerThreadHeap"]
+        T2["Thread 2<br/>PerThreadHeap"]
+        T3["Thread 4<br/>PerThreadHeap"]
+        NH1["PerNodeHeap<br/>(shared, lock-protected)"]
+        UR1["Unallocated Region<br/>bpSmall / bpBig"]
+    end
+
+    subgraph "Node 2"
+        direction TB
+        T4["Thread 1<br/>PerThreadHeap"]
+        T5["Thread 3<br/>PerThreadHeap"]
+        T6["Thread 5<br/>PerThreadHeap"]
+        NH2["PerNodeHeap<br/>(shared, lock-protected)"]
+        UR2["Unallocated Region<br/>bpSmall / bpBig"]
+    end
+
+    T1 -->|overflow| NH1
+    T2 -->|overflow| NH1
+    T3 -->|overflow| NH1
+    NH1 -->|refill| UR1
+
+    T4 -->|overflow| NH2
+    T5 -->|overflow| NH2
+    T6 -->|overflow| NH2
+    NH2 -->|refill| UR2
+```
+
+Each PerThreadHeap has one freelist per size class. When a per-thread freelist overflows (too many freed objects), it drains to the per-node heap. When it's empty, it refills from the per-node heap or from unallocated memory.
+
+---
+
+## 5. Core Component: Binding-Based Memory Management
+
+### Thread Binding
+
+At thread creation, NUMAlloc intercepts `pthread_create` and pins the new thread to a specific NUMA node (not a specific core — the OS can still schedule within the node).
+
+```mermaid
+flowchart TD
+    START([Thread Created]) --> INTERCEPT[NUMAlloc intercepts<br/>pthread_create]
+    INTERCEPT --> POLICY{Binding policy?}
+    POLICY -->|Node-interleaved<br/>default| INTERLEAVE["Bind to node = thread_id % num_nodes<br/>Threads spread evenly across nodes"]
+    POLICY -->|Node-saturate| SATURATE["Fill node 0 first,<br/>then node 1, etc."]
+    POLICY -->|Custom| CUSTOM["Read binding from<br/>config file"]
+    INTERLEAVE --> BOUND[Thread bound to node<br/>via sched_setaffinity]
+    SATURATE --> BOUND
+    CUSTOM --> BOUND
+    BOUND --> RUN([Thread runs<br/>always on its assigned node])
+```
+
+**Node-interleaved binding** (default): Thread 0 → Node 0, Thread 1 → Node 1, Thread 2 → Node 0, Thread 3 → Node 1, ... This distributes work evenly. Benchmarks show it's ~19% faster than node-saturate for full-core utilization.
+
+**Node-saturate binding**: Fill one node completely before moving to the next. Better when using fewer cores than available.
+
+### Benefits of binding
+
+Once a thread is bound, NUMAlloc knows its node from a thread-local variable — no expensive `getcpu()` / `get_mempolicy()` syscalls. This knowledge powers everything else.
+
+---
+
+## 6. Core Component: Origin-Aware Memory Management
+
+This is the mechanism that eliminates remote accesses during both allocation and deallocation.
+
+### Allocation Path
+
+```mermaid
+flowchart TD
+    REQ([malloc request]) --> SIZE{Object size?}
+    SIZE -->|"Small (< 512KB)"| PTH["Check PerThreadHeap<br/>freelist for this size class"]
+    SIZE -->|"Big (≥ 512KB)"| BIG["Check PerNodeHeap<br/>big-object freelist"]
+
+    PTH --> AVAIL1{Objects<br/>available?}
+    AVAIL1 -->|Yes| RETURN1([Return object<br/>from thread cache])
+    AVAIL1 -->|No| PNH["Check PerNodeHeap<br/>freelist for this size class"]
+
+    PNH --> AVAIL2{Objects<br/>available?}
+    AVAIL2 -->|Yes| RETURN2([Move batch to<br/>PerThreadHeap, return one])
+    AVAIL2 -->|No| FRESH["Allocate from unallocated<br/>region via bpSmall pointer"]
+
+    FRESH --> RETURN3([Return fresh memory<br/>from local node])
+
+    BIG --> AVAIL3{Objects<br/>available?}
+    AVAIL3 -->|Yes| RETURN4([Return big object])
+    AVAIL3 -->|No| FRESH_BIG["Allocate from unallocated<br/>region via bpBig pointer"]
+    FRESH_BIG --> RETURN5([Return fresh big object])
+```
+
+**Every step allocates from the current thread's node.** The per-thread freelist holds local objects. The per-node freelist holds local objects returned by origin-aware deallocation. The unallocated region is pre-bound to the local node.
+
+### Deallocation Path (Origin-Aware)
+
+This is what makes NUMAlloc unique. When `free(ptr)` is called, NUMAlloc computes the origin node of `ptr` and compares it to the calling thread's node.
+
+```mermaid
+flowchart TD
+    FREE([free ptr]) --> COMPUTE["Compute origin node<br/>node = offset / region_size"]
+    COMPUTE --> COMPARE{Origin node ==<br/>thread's node?}
+
+    COMPARE -->|"Yes — local object"| LOCAL_SIZE{Object size?}
+    LOCAL_SIZE -->|Small| LOCAL_THREAD["Return to PerThreadHeap<br/>freelist (no lock needed)"]
+    LOCAL_SIZE -->|Big| LOCAL_NODE["Return to PerNodeHeap<br/>big-object freelist"]
+
+    COMPARE -->|"No — remote object"| REMOTE["Return to ORIGIN node's<br/>PerNodeHeap freelist<br/>(lock required)"]
+
+    LOCAL_THREAD --> DONE([Done])
+    LOCAL_NODE --> DONE
+    REMOTE --> DONE
+```
+
+**Why this matters**: Traditional allocators put freed objects into the deallocating thread's cache. If Thread A (on Node 0) frees memory that was allocated on Node 1, the object stays in Thread A's cache. Next time Thread A reuses it, every access is a remote access. NUMAlloc avoids this by sending the object back to Node 1's freelist.
+
+---
+
+## 7. Core Component: Incremental Sharing of Huge Pages
+
+Transparent Huge Pages (THP) reduce TLB misses by mapping 2 MB pages instead of 4 KB pages. But they cause memory waste: a single 8-byte allocation can consume 2 MB of physical memory.
+
+### How NUMAlloc handles THP
+
+```mermaid
+flowchart LR
+    subgraph "Traditional approach<br/>(Scalloc, TEMERAIRE)"
+        T1_OLD["Thread 1 gets<br/>2MB superblock"] 
+        T2_OLD["Thread 2 gets<br/>2MB superblock"]
+        T3_OLD["Thread 3 gets<br/>2MB superblock"]
+    end
+
+    subgraph "NUMAlloc: Incremental Sharing"
+        HP["2MB Huge Page<br/>(shared by all threads on same node)"]
+        T1_NEW["Thread 1 takes<br/>32KB bag"]
+        T2_NEW["Thread 2 takes<br/>32KB bag"]
+        T3_NEW["Thread 3 takes<br/>32KB bag"]
+        HP --> T1_NEW
+        HP --> T2_NEW
+        HP --> T3_NEW
+    end
+```
+
+**Key rules:**
+
+1. Threads on the **same node** share huge pages. This is safe because all accesses are local.
+2. Each thread takes only **32 KB at a time** ("one bag"), not the full 2 MB.
+3. Different size classes can share the same huge page, reducing fragmentation.
+4. Metadata memory (e.g., `PerBagSizeInfo`, 8 bytes per bag) is explicitly allocated from normal 4 KB pages via `madvise`, preventing metadata from wasting huge-page space.
+
+This gives NUMAlloc 4.5× less memory consumption than Scalloc and similar overhead to TCMalloc's TEMERAIRE, while still getting the TLB benefits.
+
+---
+
+## 8. Efficient Object Movement
+
+Objects must move between per-thread and per-node freelists to prevent memory blowup (where one thread hoards freed memory that other threads need). NUMAlloc uses two data structures for this:
+
+### Per-Thread Freelist: Tail + nth Pointer
+
+```mermaid
+graph LR
+    HEAD["Head<br/>(most recent)"] --> N1[obj] --> N2[obj] --> N3[obj] --> NTH["nth pointer"] --> N4[obj] --> N5[obj] --> TAIL["Tail<br/>(least recent)"] --> NULL[NULL]
+    
+    style NTH fill:#f9cb42,stroke:#854f0b,color:#412402
+    style TAIL fill:#f9cb42,stroke:#854f0b,color:#412402
+```
+
+When draining to the per-node heap, NUMAlloc moves the **least recently used** objects (between `nth` and `Tail`) in a single pointer swap — no traversal needed. This keeps hot objects in the thread cache and avoids polluting the CPU cache with cold data.
+
+### Per-Node Freelist: Circular Array of Sub-Lists
+
+```mermaid
+graph TD
+    subgraph "Circular Array"
+        SL1["Sub-list 1<br/>Head → Tail"] 
+        SL2["Sub-list 2<br/>Head → Tail"]
+        SL3["Sub-list 3<br/>Head → Tail"]
+        SL4["Sub-list 4<br/>Head → Tail"]
+    end
+
+    THREAD["Thread needs<br/>objects"] -->|"Takes entire<br/>sub-list at once"| SL1
+```
+
+When a thread needs objects from the per-node heap, it grabs an **entire sub-list** (one Head–Tail pair) in a single lock-guarded operation. No traversal of the shared list, which minimizes lock contention when many threads compete.
+
+---
+
+## 9. Metadata Layout
+
+NUMAlloc keeps all metadata local to the node that uses it:
+
+| Metadata | Location | Size |
+|----------|----------|------|
+| `PerBagSizeInfo` | Separate area, normal pages (via `madvise`) | 8 bytes per 32 KB bag |
+| `PerBigObjectSizeInfo` | Linked list within each node's region | Variable (size + availability per big object) |
+| `PerThreadHeap` | Thread-local storage, on thread's node | One freelist head per size class |
+| `PerNodeHeap` | Within each node's region | Freelists + circular array of sub-lists |
+
+Local metadata means that even metadata access is a local memory operation — no hidden remote accesses from bookkeeping.
+
+---
+
+## 10. Initialization Sequence
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant NA as NUMAlloc
+    participant OS as Linux Kernel
+
+    App->>NA: Process starts (LD_PRELOAD)
+    NA->>OS: Query NUMA topology<br/>(numa_node_to_cpus)
+    OS-->>NA: Node-to-core mapping
+    NA->>OS: mmap large contiguous region
+    OS-->>NA: Virtual address range
+    NA->>OS: mbind region 1 → node 1<br/>mbind region 2 → node 2 ...
+    NA->>NA: Initialize PerNodeHeaps<br/>Set bpSmall, bpBig pointers
+    NA->>OS: madvise metadata region<br/>(use normal pages, not THP)
+    
+    Note over App,NA: Ready to serve allocations
+    
+    App->>NA: pthread_create(thread_fn)
+    NA->>OS: Bind thread to node<br/>(sched_setaffinity)
+    NA->>NA: Initialize PerThreadHeap<br/>for new thread
+```
+
+---
+
+## 11. Performance Results Summary
+
+Tested on an 8-node Intel Xeon machine (128 cores, 512 GB RAM) with 25 applications:
+
+| Metric | NUMAlloc vs. glibc | NUMAlloc vs. mimalloc |
+|--------|-------------------|----------------------|
+| Average speedup | 20.9% faster | 15.7% faster |
+| Best case (fluidanimate) | 5.3× faster | 4.6× faster |
+| Remote accesses | 9× fewer | 8× fewer |
+| TLB misses | 18× fewer | — |
+| Memory overhead | +17.6% | 1.63× better |
+| Scalability at 128 threads | 88× speedup | 75× (mimalloc) |
+
+---
+
+## 12. Limitations and Trade-offs
+
+1. **Higher memory consumption with THP enabled** — The large initial `mmap` triggers huge-page backing. NUMAlloc uses 17.6% more memory than glibc (but 4.5× less than Scalloc). Could be improved with TEMERAIRE-style page management.
+
+2. **Thread binding is mandatory** — NUMAlloc pins threads to nodes. This doesn't conflict with OS scheduling (threads can still move between cores within a node), but it does prevent cross-node migration. For server workloads with thread pools, the node-interleaved binding works well.
+
+3. **Remote deallocation bottleneck** — When many threads free objects originating from the same remote node, the per-node freelist lock can become contended. This is visible in the `larson` benchmark where mimalloc edges ahead at 128 threads.
+
+4. **No support for heterogeneous memory** — NUMAlloc assumes all nodes have equal memory capacity and divides the heap evenly.
+
+---
+
+## 13. Comparison with Other Allocators
+
+```mermaid
+graph TD
+    subgraph "NUMA-unaware"
+        GLIBC["glibc<br/>Sequential allocator<br/>No NUMA support"]
+        JEMALLOC["jemalloc<br/>BiBOP-style<br/>No NUMA awareness"]
+        HOARD["Hoard<br/>Per-thread heaps<br/>No NUMA awareness"]
+    end
+
+    subgraph "Partial NUMA support"
+        TCNUMA["TCMalloc-NUMA<br/>Per-node freelists<br/>Many mbind calls<br/>No metadata locality"]
+        MIMALLOC["mimalloc<br/>Per-page freelists<br/>Segment-level NUMA<br/>No thread binding"]
+        TBB["Intel TBB<br/>NUMA-optimized scheduler<br/>Separate allocator"]
+    end
+
+    subgraph "Full NUMA design"
+        NUMALLOC["NUMAlloc<br/>Thread + memory binding<br/>Origin-aware dealloc<br/>Incremental THP sharing<br/>Local metadata"]
+    end
+
+    GLIBC -.->|"adds node freelists"| TCNUMA
+    TCNUMA -.->|"adds binding +<br/>origin tracking"| NUMALLOC
+    MIMALLOC -.->|"adds thread binding +<br/>THP sharing"| NUMALLOC
+```
+
+---
+
+## 14. When to Use NUMAlloc
+
+**Good fit:**
+- Multi-threaded server applications on NUMA hardware (2+ sockets)
+- Applications with many small allocations and high thread counts
+- Workloads where threads primarily use their own allocated memory
+- Environments where THP is enabled
+
+**Poor fit:**
+- Single-threaded applications (no NUMA benefit)
+- Applications that intentionally share objects across threads on different nodes (producer-consumer across sockets)
+- Systems with asymmetric NUMA topologies or heterogeneous memory
+
+---
+
+*Based on: Yang et al., "NUMAlloc: A Faster NUMA Memory Allocator," ISMM 2023, ACM.*
