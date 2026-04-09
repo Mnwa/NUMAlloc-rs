@@ -2,8 +2,15 @@
 name = "numalloc"
 version = "0.1.0"
 edition = "2024"
+description = "A blazing-fast, NUMA-aware memory allocator written in pure Rust"
+license = "MIT"
 repository = "https://github.com/Mnwa/NUMAlloc-rs"
+homepage = "https://github.com/Mnwa/NUMAlloc-rs"
+documentation = "https://docs.rs/numalloc"
 authors = ["Mikhail Panfilov <mikhail@panfilov.biz>"]
+readme = "README.md"
+keywords = ["allocator", "numa", "memory", "performance", "lock-free"]
+categories = ["memory-management", "no-std", "concurrency"]
 
 [dependencies]
 libc = "0.2"
