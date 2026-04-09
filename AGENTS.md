@@ -94,7 +94,7 @@ Distributes memory pressure evenly across NUMA nodes. Avoids hotspotting on node
 
 ### `unsafe` Usage Policy
 - Every `unsafe` block must have a `// SAFETY:` comment explaining why the invariants hold.
-- Prefer `NonNull<T>` over `*mut T` for non-null pointers — encodes the non-null invariant in the type system.
+- **Avoid raw pointers** (`*mut T`, `*const T`) wherever possible. Use `NonNull<T>` for non-null pointers, `UnsafeCell<T>` for interior mutability, and other typed wrappers instead of bare pointer casts. Raw pointers are acceptable only at FFI boundaries (e.g., `libc` calls) and `GlobalAlloc` trait signatures which require them.
 - Use `UnsafeCell<T>` for interior mutability in single-threaded contexts (e.g., `FreeBlock::next`). Never use raw pointer casts to bypass aliasing rules.
 - Minimize `unsafe` surface area: isolate unsafe operations into small, well-documented functions.
 

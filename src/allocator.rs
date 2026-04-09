@@ -150,7 +150,7 @@ impl NumaAlloc {
         };
         unsafe {
             nn.as_ptr()
-                .write(PerThreadHeap::new(node, heap as *const GlobalHeap));
+                .write(PerThreadHeap::new(node, NonNull::from(heap)));
         }
 
         let _ = TH_PTR.try_with(|slot| slot.set(Some(nn)));
@@ -343,10 +343,15 @@ impl NumaAlloc {
         let align = layout.align().max(std::mem::align_of::<LargeHeader>());
         let payload_addr = (raw.as_ptr() as usize + header_size + align - 1) & !(align - 1);
 
-        let header_ptr = (payload_addr - header_size) as *mut LargeHeader;
+        // SAFETY: payload_addr - header_size is within the mmap region and
+        // correctly aligned for LargeHeader.
+        let header_ptr =
+            unsafe { NonNull::new_unchecked((payload_addr - header_size) as *mut LargeHeader) };
         unsafe {
-            (*header_ptr).original_ptr = raw;
-            (*header_ptr).alloc_size = alloc_size;
+            header_ptr.as_ptr().write(LargeHeader {
+                original_ptr: raw,
+                alloc_size,
+            });
         }
         payload_addr as *mut u8
     }
@@ -407,9 +412,13 @@ impl NumaAlloc {
 /// attempt caching; pass `None` to force immediate `munmap`.
 unsafe fn dealloc_large(ptr: NonNull<u8>, allocator: Option<&NumaAlloc>) {
     let header_size = std::mem::size_of::<LargeHeader>();
-    let header_ptr = unsafe { ptr.as_ptr().sub(header_size) as *mut LargeHeader };
-    let original = unsafe { (*header_ptr).original_ptr };
-    let size = unsafe { (*header_ptr).alloc_size };
+    // SAFETY: ptr was returned by prepare_large_payload; subtracting
+    // header_size yields the LargeHeader that was written at allocation time.
+    let header_ptr =
+        unsafe { NonNull::new_unchecked(ptr.as_ptr().sub(header_size) as *mut LargeHeader) };
+    let header = unsafe { header_ptr.as_ref() };
+    let original = header.original_ptr;
+    let size = header.alloc_size;
 
     // Try to cache for reuse.
     if let Some(alloc) = allocator

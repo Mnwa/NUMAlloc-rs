@@ -159,14 +159,14 @@ pub struct PerThreadHeap {
     pub node_id: usize,
     /// Pointer to the owning [`GlobalHeap`], used during thread-exit cleanup
     /// to drain cached blocks back to per-node freelists.
-    pub global_heap: *const GlobalHeap,
+    pub global_heap: NonNull<GlobalHeap>,
     freelists: [ThreadFreelist; NUM_SIZE_CLASSES],
     /// Heap-allocated large object cache (via System allocator).
     large_cache: NonNull<LargeCache>,
 }
 
 impl PerThreadHeap {
-    pub fn new(node_id: usize, global_heap: *const GlobalHeap) -> Self {
+    pub fn new(node_id: usize, global_heap: NonNull<GlobalHeap>) -> Self {
         Self {
             node_id,
             global_heap,
@@ -203,7 +203,7 @@ impl PerThreadHeap {
     /// `self.global_heap` must point to a valid, live [`GlobalHeap`].
     pub unsafe fn drain_to_node_heap(&mut self) {
         // SAFETY: caller guarantees GlobalHeap is still alive.
-        let heap = unsafe { &*self.global_heap };
+        let heap = unsafe { self.global_heap.as_ref() };
         let node = self.node_id;
         for class_idx in 0..NUM_SIZE_CLASSES {
             if let Some((head, tail, _)) = self.freelists[class_idx].drain_all() {
