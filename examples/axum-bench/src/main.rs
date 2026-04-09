@@ -61,7 +61,10 @@ async fn medium_handler() -> Json<Medium> {
 async fn large_handler() -> Json<Large> {
     let mut metadata = HashMap::new();
     for i in 0..20 {
-        metadata.insert(format!("key_{i}"), format!("value_{i}_with_some_extra_data"));
+        metadata.insert(
+            format!("key_{i}"),
+            format!("value_{i}_with_some_extra_data"),
+        );
     }
 
     let items: Vec<Medium> = (0..50)
@@ -70,18 +73,16 @@ async fn large_handler() -> Json<Large> {
             name: format!("User {i}"),
             email: format!("user{i}@example.com"),
             tags: vec![format!("tag_{}", i % 5), format!("group_{}", i % 3)],
-            scores: vec![
-                (i as f64) * 1.1,
-                (i as f64) * 2.2,
-                (i as f64) * 3.3,
-            ],
+            scores: vec![(i as f64) * 1.1, (i as f64) * 2.2, (i as f64) * 3.3],
         })
         .collect();
 
     Json(Large {
         id: 1,
         title: "Large dataset response".to_string(),
-        description: "This response contains a large nested JSON structure to stress-test allocations".to_string(),
+        description:
+            "This response contains a large nested JSON structure to stress-test allocations"
+                .to_string(),
         metadata,
         items,
     })
@@ -93,10 +94,7 @@ async fn bulk_handler() -> Json<Vec<Medium>> {
             id: i,
             name: format!("Bulk user {i}"),
             email: format!("bulk{i}@example.com"),
-            tags: vec![
-                format!("category_{}", i % 10),
-                format!("region_{}", i % 4),
-            ],
+            tags: vec![format!("category_{}", i % 10), format!("region_{}", i % 4)],
             scores: vec![(i as f64) * 0.5; 10],
         })
         .collect();
