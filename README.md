@@ -4,6 +4,8 @@
 
 NUMAlloc is a drop-in replacement for the global allocator, purpose-built for Non-Uniform Memory Access (NUMA) machines. It pins threads and memory to NUMA nodes, routes freed objects back to their origin node, and shares huge pages incrementally -- delivering fewer remote memory accesses, fewer TLB misses, and lower latency than general-purpose allocators.
 
+> **Note:** This project has not been tested in production. Any feedback is welcome — please use with caution.
+
 ## Features
 
 - **Zero-cost NUMA awareness** - O(1) origin-node lookup via pointer arithmetic, no syscalls on the hot path
