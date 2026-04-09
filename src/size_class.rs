@@ -2,9 +2,8 @@
 pub const NUM_SIZE_CLASSES: usize = 12;
 
 /// Size classes: powers of 2 from 8 to 16384 bytes.
-pub const SIZE_CLASSES: [usize; NUM_SIZE_CLASSES] = [
-    8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384,
-];
+pub const SIZE_CLASSES: [usize; NUM_SIZE_CLASSES] =
+    [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384];
 
 /// Size of each BiBOP bag (32 KB).
 pub const BAG_SIZE: usize = 32 * 1024;

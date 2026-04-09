@@ -106,11 +106,7 @@ pub fn bind_thread_to_node(node: usize) {
                     libc::CPU_SET(cpu, &mut cpuset);
                 }
             }
-            libc::sched_setaffinity(
-                0,
-                std::mem::size_of::<libc::cpu_set_t>(),
-                &cpuset,
-            );
+            libc::sched_setaffinity(0, std::mem::size_of::<libc::cpu_set_t>(), &cpuset);
         }
     }
 }

@@ -56,9 +56,7 @@ impl NodeRegion {
                 .compare_exchange_weak(offset, new_offset, Ordering::Relaxed, Ordering::Relaxed)
                 .is_ok()
             {
-                return Some(unsafe {
-                    NonNull::new_unchecked(self.base.as_ptr().add(offset))
-                });
+                return Some(unsafe { NonNull::new_unchecked(self.base.as_ptr().add(offset)) });
             }
         }
     }

@@ -1,14 +1,14 @@
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::ptr::NonNull;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::OnceLock;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::freelist::FreeBlock;
 use crate::heap::GlobalHeap;
 use crate::platform;
 use crate::size_class::{self, BAG_SIZE, SMALL_LIMIT};
-use crate::thread_heap::{PerThreadHeap, MAX_THREAD_CACHE, REFILL_BATCH};
+use crate::thread_heap::{MAX_THREAD_CACHE, PerThreadHeap, REFILL_BATCH};
 
 // ---------------------------------------------------------------------------
 // Global state
@@ -147,9 +147,8 @@ unsafe impl GlobalAlloc for NumaAlloc {
         let obj_size = size_class::size_for_class(class_idx);
         let count = BAG_SIZE / obj_size;
         for i in 0..count {
-            let obj = unsafe {
-                NonNull::new_unchecked(bag.as_ptr().add(i * obj_size) as *mut FreeBlock)
-            };
+            let obj =
+                unsafe { NonNull::new_unchecked(bag.as_ptr().add(i * obj_size) as *mut FreeBlock) };
             fl.push(obj);
         }
 

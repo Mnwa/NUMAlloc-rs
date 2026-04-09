@@ -67,11 +67,7 @@ mod tests {
                 let layout = Layout::from_size_align(align, align).unwrap();
                 let ptr = ALLOC.alloc(layout);
                 assert!(!ptr.is_null());
-                assert_eq!(
-                    ptr as usize % align,
-                    0,
-                    "misaligned for align={align}"
-                );
+                assert_eq!(ptr as usize % align, 0, "misaligned for align={align}");
                 ALLOC.dealloc(ptr, layout);
             }
         }
@@ -93,7 +89,11 @@ mod tests {
                 seen.insert(ptr as usize);
             }
             // With a freelist the same slot is reused quickly.
-            assert!(seen.len() < 100, "expected reuse, got {} unique ptrs", seen.len());
+            assert!(
+                seen.len() < 100,
+                "expected reuse, got {} unique ptrs",
+                seen.len()
+            );
         }
     }
 
@@ -229,7 +229,10 @@ mod tests {
             let ptr2 = ALLOC.alloc_zeroed(layout);
             assert!(!ptr2.is_null());
             let slice = std::slice::from_raw_parts(ptr2, 256);
-            assert!(slice.iter().all(|&b| b == 0), "alloc_zeroed returned non-zero memory");
+            assert!(
+                slice.iter().all(|&b| b == 0),
+                "alloc_zeroed returned non-zero memory"
+            );
             ALLOC.dealloc(ptr2, layout);
         }
     }
@@ -243,7 +246,10 @@ mod tests {
             let ptr = ALLOC.alloc_zeroed(layout);
             assert!(!ptr.is_null());
             let slice = std::slice::from_raw_parts(ptr, size);
-            assert!(slice.iter().all(|&b| b == 0), "large alloc_zeroed not zeroed");
+            assert!(
+                slice.iter().all(|&b| b == 0),
+                "large alloc_zeroed not zeroed"
+            );
             ALLOC.dealloc(ptr, layout);
         }
     }
@@ -647,8 +653,8 @@ mod tests {
     #[test]
     fn producer_consumer_concurrent() {
         static ALLOC: NumaAlloc = NumaAlloc::new();
-        use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
+        use std::sync::atomic::{AtomicBool, Ordering};
         use std::thread;
 
         const PRODUCERS: usize = 4;
@@ -656,8 +662,7 @@ mod tests {
         const ITEMS_PER_PRODUCER: usize = 2_000;
 
         // Store addresses as usize so they are Send.
-        let queue: Arc<std::sync::Mutex<Vec<usize>>> =
-            Arc::new(std::sync::Mutex::new(Vec::new()));
+        let queue: Arc<std::sync::Mutex<Vec<usize>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
         let done = Arc::new(AtomicBool::new(false));
 
         // Producers.
@@ -927,8 +932,7 @@ mod tests {
                 second_addrs.push(ptr as usize);
             }
 
-            let first_set: std::collections::HashSet<usize> =
-                first_addrs.iter().copied().collect();
+            let first_set: std::collections::HashSet<usize> = first_addrs.iter().copied().collect();
             let reused = second_addrs
                 .iter()
                 .filter(|a| first_set.contains(a))
@@ -979,8 +983,7 @@ mod tests {
                     second.push(ptr as usize);
                 }
 
-                let first_set: std::collections::HashSet<usize> =
-                    first.iter().copied().collect();
+                let first_set: std::collections::HashSet<usize> = first.iter().copied().collect();
                 let reused = second.iter().filter(|a| first_set.contains(a)).count();
                 assert!(
                     reused > 0,
@@ -1072,8 +1075,7 @@ mod tests {
         // freelist, so thread B should see high reuse.
         let consumer = thread::spawn(move || unsafe {
             let addrs = rx_addrs.recv().unwrap();
-            let first_set: std::collections::HashSet<usize> =
-                addrs.iter().copied().collect();
+            let first_set: std::collections::HashSet<usize> = addrs.iter().copied().collect();
 
             for &addr in &addrs {
                 ALLOC.dealloc(addr as *mut u8, layout);
@@ -1135,8 +1137,7 @@ mod tests {
                 second.push(ptr as usize);
             }
 
-            let first_set: std::collections::HashSet<usize> =
-                first.iter().copied().collect();
+            let first_set: std::collections::HashSet<usize> = first.iter().copied().collect();
             let reused = second.iter().filter(|a| first_set.contains(a)).count();
             assert!(
                 reused > 0,
@@ -1288,9 +1289,8 @@ mod tests {
         let layout = Layout::from_size_align(64, 8).unwrap();
 
         let barrier = Arc::new(Barrier::new(NUM_THREADS));
-        let deposit: Arc<Mutex<Vec<Vec<usize>>>> = Arc::new(Mutex::new(
-            (0..NUM_THREADS).map(|_| Vec::new()).collect(),
-        ));
+        let deposit: Arc<Mutex<Vec<Vec<usize>>>> =
+            Arc::new(Mutex::new((0..NUM_THREADS).map(|_| Vec::new()).collect()));
 
         let handles: Vec<_> = (0..NUM_THREADS)
             .map(|tid| {
