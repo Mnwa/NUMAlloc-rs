@@ -1,5 +1,5 @@
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::UnsafeCell;
+use std::cell::Cell;
 use std::ptr::NonNull;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -14,25 +14,10 @@ use crate::thread_heap::{MAX_THREAD_CACHE, PerThreadHeap, REFILL_BATCH};
 // Per-instance thread-local storage
 // ---------------------------------------------------------------------------
 
-/// Maximum number of independent [`NumaAlloc`] instances that a single thread
-/// can use concurrently.  Four is generous for practical use; the common case
-/// is one (the global allocator).
-const MAX_ALLOCATORS: usize = 4;
-
-/// `(allocator identity, thread-heap pointer)` — one slot per allocator
-/// instance that a thread interacts with.
-type ThEntry = (usize, Option<NonNull<PerThreadHeap>>);
-
 thread_local! {
-    /// Per-thread cache mapping allocator identity (address) to the thread's
-    /// [`PerThreadHeap`] for that allocator.
-    ///
-    /// # Safety
-    /// `UnsafeCell` is used instead of `Cell` to avoid copying the array on
-    /// every access.  Thread-locals are inherently single-threaded, so
-    /// unsynchronised access is safe.
-    static TH_HEAPS: UnsafeCell<[ThEntry; MAX_ALLOCATORS]> =
-        const { UnsafeCell::new([(0, None); MAX_ALLOCATORS]) };
+    /// Pointer to the current thread's [`PerThreadHeap`].
+    /// Allocated via the **system** allocator to avoid bootstrap recursion.
+    static TH_PTR: Cell<Option<NonNull<PerThreadHeap>>> = const { Cell::new(None) };
 }
 
 // ---------------------------------------------------------------------------
@@ -93,55 +78,17 @@ impl NumaAlloc {
         })
     }
 
-    /// Look up the current thread's node id for this allocator, without
-    /// creating a thread heap if one doesn't exist yet.
-    fn try_get_node(&self) -> Option<usize> {
-        let key = self as *const Self as usize;
-        TH_HEAPS
-            .try_with(|cell| {
-                // Safety: single-threaded access to thread-local.
-                let entries = unsafe { &*cell.get() };
-                for &(k, v) in entries.iter() {
-                    if k == key {
-                        return v.map(|nn| unsafe { nn.as_ref().node_id });
-                    }
-                }
-                None
-            })
-            .ok()
-            .flatten()
-    }
-
-    /// Obtain (or lazily create) the calling thread's [`PerThreadHeap`] for
-    /// this allocator instance.
+    /// Obtain (or lazily create) the calling thread's [`PerThreadHeap`].
     ///
     /// The heap struct is allocated from the **system** allocator so that the
     /// very first allocation of a new thread doesn't recurse into NUMAlloc.
-    #[inline]
     fn thread_heap(&self) -> NonNull<PerThreadHeap> {
-        let key = self as *const Self as usize;
-
-        // Fast path: look up in per-thread cache.
-        // Safety: thread-locals are single-threaded; UnsafeCell access is safe.
-        if let Ok(Some(nn)) = TH_HEAPS.try_with(|cell| {
-            // Safety: single-threaded access to thread-local.
-            let entries = unsafe { &*cell.get() };
-            for &(k, v) in entries.iter() {
-                if k == key {
-                    return v;
-                }
-            }
-            None
-        }) {
-            return nn;
+        // Fast path: try_with avoids panicking when TLS is being destroyed.
+        if let Ok(Some(ptr)) = TH_PTR.try_with(Cell::get) {
+            return ptr;
         }
 
-        // Slow path — first allocation on this thread for this allocator.
-        self.thread_heap_slow(key)
-    }
-
-    #[cold]
-    fn thread_heap_slow(&self, key: usize) -> NonNull<PerThreadHeap> {
+        // Slow path — first allocation on this thread.
         let heap = self.heap();
         let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
 
@@ -158,20 +105,7 @@ impl NumaAlloc {
             nn.as_ptr().write(PerThreadHeap::new(node));
         }
 
-        let _ = TH_HEAPS.try_with(|cell| {
-            // Safety: single-threaded access to thread-local.
-            let entries = unsafe { &mut *cell.get() };
-            // Find an empty slot.
-            for entry in entries.iter_mut() {
-                if entry.1.is_none() {
-                    *entry = (key, Some(nn));
-                    return;
-                }
-            }
-            // All slots full — overwrite the first (unlikely with MAX_ALLOCATORS=4).
-            entries[0] = (key, Some(nn));
-        });
-
+        let _ = TH_PTR.try_with(|c| c.set(Some(nn)));
         nn
     }
 }
@@ -367,7 +301,8 @@ impl NumaAlloc {
         }
 
         // Optionally bind to the current thread's NUMA node.
-        if let Some(node) = self.try_get_node() {
+        if let Ok(Some(th)) = TH_PTR.try_with(Cell::get) {
+            let node = unsafe { th.as_ref().node_id };
             unsafe {
                 platform::bind_to_node(raw, alloc_size, node);
             }
