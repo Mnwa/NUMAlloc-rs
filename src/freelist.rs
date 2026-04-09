@@ -208,6 +208,21 @@ impl ThreadFreelist {
         self.head.is_none()
     }
 
+    /// Drain **all** items, returning the full chain.  Used on thread exit
+    /// to return cached blocks to the per-node heap.
+    pub fn drain_all(&mut self) -> Option<(NonNull<FreeBlock>, NonNull<FreeBlock>, usize)> {
+        if self.count == 0 {
+            return None;
+        }
+        let head = self.head.unwrap();
+        let tail = self.tail.unwrap();
+        let count = self.count;
+        self.head = None;
+        self.tail = None;
+        self.count = 0;
+        Some((head, tail, count))
+    }
+
     /// Drain the **coldest** (tail-side) items, keeping `keep` hot items at
     /// the head.  Returns `(chain_head, chain_tail, drained_count)`.
     ///

@@ -11,13 +11,63 @@ use crate::size_class::{self, BAG_SIZE, SMALL_LIMIT};
 use crate::thread_heap::{MAX_THREAD_CACHE, PerThreadHeap, REFILL_BATCH};
 
 // ---------------------------------------------------------------------------
+// Per-thread heap guard (cleanup on thread exit)
+// ---------------------------------------------------------------------------
+
+/// Thin wrapper around a [`PerThreadHeap`] pointer that drains cached freelist
+/// blocks back to the per-node Treiber stacks when the owning thread exits.
+/// This prevents progressive region exhaustion caused by short-lived threads
+/// stranding blocks in their thread-local caches.
+struct ThreadHeapSlot {
+    inner: Cell<Option<NonNull<PerThreadHeap>>>,
+}
+
+impl ThreadHeapSlot {
+    const fn new() -> Self {
+        Self {
+            inner: Cell::new(None),
+        }
+    }
+
+    #[inline]
+    fn get(&self) -> Option<NonNull<PerThreadHeap>> {
+        self.inner.get()
+    }
+
+    #[inline]
+    fn set(&self, val: Option<NonNull<PerThreadHeap>>) {
+        self.inner.set(val);
+    }
+}
+
+impl Drop for ThreadHeapSlot {
+    fn drop(&mut self) {
+        if let Some(mut th_ptr) = self.inner.get() {
+            // SAFETY: `th_ptr` was allocated via `System.alloc` in
+            // `NumaAlloc::thread_heap` and points to a valid `PerThreadHeap`.
+            // The `GlobalHeap` is stored in a `static OnceLock` and outlives
+            // all non-main threads; for the main thread, thread-locals are
+            // destroyed before statics.
+            unsafe {
+                th_ptr.as_mut().drain_to_node_heap();
+                System.dealloc(
+                    th_ptr.as_ptr() as *mut u8,
+                    Layout::new::<PerThreadHeap>(),
+                );
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Per-instance thread-local storage
 // ---------------------------------------------------------------------------
 
 thread_local! {
     /// Pointer to the current thread's [`PerThreadHeap`].
     /// Allocated via the **system** allocator to avoid bootstrap recursion.
-    static TH_PTR: Cell<Option<NonNull<PerThreadHeap>>> = const { Cell::new(None) };
+    /// The [`ThreadHeapSlot`] wrapper ensures cleanup on thread exit.
+    static TH_PTR: ThreadHeapSlot = const { ThreadHeapSlot::new() };
 }
 
 // ---------------------------------------------------------------------------
@@ -84,7 +134,7 @@ impl NumaAlloc {
     /// very first allocation of a new thread doesn't recurse into NUMAlloc.
     fn thread_heap(&self) -> NonNull<PerThreadHeap> {
         // Fast path: try_with avoids panicking when TLS is being destroyed.
-        if let Ok(Some(ptr)) = TH_PTR.try_with(Cell::get) {
+        if let Ok(Some(ptr)) = TH_PTR.try_with(ThreadHeapSlot::get) {
             return ptr;
         }
 
@@ -102,10 +152,11 @@ impl NumaAlloc {
             std::alloc::handle_alloc_error(layout);
         };
         unsafe {
-            nn.as_ptr().write(PerThreadHeap::new(node));
+            nn.as_ptr()
+                .write(PerThreadHeap::new(node, heap as *const GlobalHeap));
         }
 
-        let _ = TH_PTR.try_with(|c| c.set(Some(nn)));
+        let _ = TH_PTR.try_with(|slot| slot.set(Some(nn)));
         nn
     }
 }
@@ -301,7 +352,7 @@ impl NumaAlloc {
         }
 
         // Optionally bind to the current thread's NUMA node.
-        if let Ok(Some(th)) = TH_PTR.try_with(Cell::get) {
+        if let Ok(Some(th)) = TH_PTR.try_with(ThreadHeapSlot::get) {
             let node = unsafe { th.as_ref().node_id };
             unsafe {
                 platform::bind_to_node(raw, alloc_size, node);
