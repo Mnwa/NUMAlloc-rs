@@ -147,7 +147,22 @@ Multi-threaded alloc+dealloc (10,000 ops/thread, lower is better):
 | 1 KB, 8 threads | **213 us** | 2.9 ms  | 293 us   | 221 us   |
 | 4 KB, 8 threads | **213 us** | 3.3 ms  | 337 us   | 245 us   |
 
-Run benchmarks yourself with `cargo bench`.
+Axum HTTP server benchmark (4 threads, 100 connections, 10s, higher is better):
+
+| Endpoint         | numalloc       | system         | mimalloc       |
+|------------------|----------------|----------------|----------------|
+| `/small` ~32 B   | **49,124 rps** | 48,286 rps     | 48,310 rps     |
+| `/medium` ~256 B | **49,135 rps** | 48,892 rps     | 49,017 rps     |
+| `/large` ~16 KB  | **46,600 rps** | 46,244 rps     | 46,511 rps     |
+| `/bulk` ~64 KB   | **37,558 rps** | 35,121 rps     | 37,155 rps     |
+
+| Allocator | RSS after load |
+|-----------|----------------|
+| system    | **11 MB**      |
+| numalloc  | 16 MB          |
+| mimalloc  | 27 MB          |
+
+Run benchmarks yourself with `cargo bench` or `cd examples/axum-bench && bash bench.sh`.
 
 ## Design Principles
 
