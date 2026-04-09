@@ -33,6 +33,7 @@ pub const fn size_for_class(index: usize) -> usize {
 }
 
 /// Returns the number of objects that fit in one bag for a given size class.
+#[cfg(test)]
 pub const fn objects_per_bag(class_index: usize) -> usize {
     BAG_SIZE / SIZE_CLASSES[class_index]
 }

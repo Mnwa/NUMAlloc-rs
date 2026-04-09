@@ -141,6 +141,7 @@ impl TreiberStack {
 
     /// Returns `true` when the stack appears empty.
     /// (Another thread may push concurrently, so this is advisory.)
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         let (head, _) = Self::unpack(self.head.load(Ordering::Relaxed));
         head.is_none()
@@ -201,6 +202,7 @@ impl ThreadFreelist {
         self.count
     }
 
+    #[cfg(test)]
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.head.is_none()

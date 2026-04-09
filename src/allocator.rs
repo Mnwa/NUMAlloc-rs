@@ -52,6 +52,12 @@ pub struct NumaAlloc;
 unsafe impl Send for NumaAlloc {}
 unsafe impl Sync for NumaAlloc {}
 
+impl Default for NumaAlloc {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NumaAlloc {
     pub const fn new() -> Self {
         Self
@@ -188,13 +194,13 @@ unsafe impl GlobalAlloc for NumaAlloc {
             fl.push(block);
 
             // Drain excess to per-node heap.
-            if fl.count() > MAX_THREAD_CACHE {
-                if let Some((head, tail, _)) = fl.drain(MAX_THREAD_CACHE / 2) {
-                    heap.node_region(current_node)
-                        .node_heap
-                        .freelist(class_idx)
-                        .push_chain(head, tail);
-                }
+            if fl.count() > MAX_THREAD_CACHE
+                && let Some((head, tail, _)) = fl.drain(MAX_THREAD_CACHE / 2)
+            {
+                heap.node_region(current_node)
+                    .node_heap
+                    .freelist(class_idx)
+                    .push_chain(head, tail);
             }
         } else {
             // Remote deallocation — push directly to origin node's per-node
@@ -229,15 +235,15 @@ unsafe impl GlobalAlloc for NumaAlloc {
 
         // If both old and new land in the same small size class the existing
         // allocation already has enough room — return the pointer as-is.
-        if old_effective <= SMALL_LIMIT && new_effective <= SMALL_LIMIT {
-            if let (Some(old_cls), Some(new_cls)) = (
+        if old_effective <= SMALL_LIMIT
+            && new_effective <= SMALL_LIMIT
+            && let (Some(old_cls), Some(new_cls)) = (
                 size_class::size_class_index(old_effective),
                 size_class::size_class_index(new_effective),
-            ) {
-                if old_cls == new_cls {
-                    return ptr;
-                }
-            }
+            )
+            && old_cls == new_cls
+        {
+            return ptr;
         }
 
         // General case: allocate → copy → deallocate.
