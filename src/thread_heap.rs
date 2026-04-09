@@ -59,17 +59,37 @@ impl LargeCache {
         nn
     }
 
+    /// Maximum extra bytes we tolerate when reusing a cached region.
+    const CLOSE_SIZE_TOLERANCE: usize = 8 * 1024; // 8 KiB
+
     #[inline]
     fn take(&mut self, alloc_size: usize) -> Option<(NonNull<u8>, usize)> {
         let count = self.count;
+        let mut best_idx: usize = usize::MAX;
+        let mut best_waste: usize = usize::MAX;
         for i in 0..count {
-            if self.entries[i].alloc_size == alloc_size {
+            let entry_size = self.entries[i].alloc_size;
+            if entry_size == alloc_size {
+                // Exact match — take immediately.
                 let entry = self.entries[i];
                 self.count -= 1;
                 self.bytes -= entry.alloc_size;
                 self.entries[i] = self.entries[self.count];
                 return Some((entry.original_ptr, entry.alloc_size));
             }
+            let waste = entry_size.wrapping_sub(alloc_size);
+            if entry_size >= alloc_size && waste <= Self::CLOSE_SIZE_TOLERANCE && waste < best_waste
+            {
+                best_waste = waste;
+                best_idx = i;
+            }
+        }
+        if best_idx < count {
+            let entry = self.entries[best_idx];
+            self.count -= 1;
+            self.bytes -= entry.alloc_size;
+            self.entries[best_idx] = self.entries[self.count];
+            return Some((entry.original_ptr, entry.alloc_size));
         }
         None
     }
