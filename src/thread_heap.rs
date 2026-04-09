@@ -1,4 +1,5 @@
 use std::alloc::{Layout, System};
+use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
 use crate::freelist::ThreadFreelist;
@@ -33,7 +34,7 @@ struct LargeCacheEntry {
 /// so that the hot small-object freelists stay in a compact, cache-friendly
 /// struct (~320 bytes) while the large cache can be up to 16 KiB.
 struct LargeCache {
-    entries: [LargeCacheEntry; LARGE_CACHE_SLOTS],
+    entries: [MaybeUninit<LargeCacheEntry>; LARGE_CACHE_SLOTS],
     count: usize,
     bytes: usize,
 }
@@ -46,6 +47,9 @@ impl LargeCache {
         let Some(nn) = NonNull::new(ptr) else {
             std::alloc::handle_alloc_error(layout);
         };
+        // SAFETY: `entries` uses MaybeUninit so it does not require
+        // initialisation.  Only `count` and `bytes` need valid values;
+        // entries are read only for indices < count.
         unsafe {
             std::ptr::write(&raw mut (*nn.as_ptr()).count, 0);
             std::ptr::write(&raw mut (*nn.as_ptr()).bytes, 0);
@@ -62,24 +66,27 @@ impl LargeCache {
         let mut best_idx: usize = usize::MAX;
         let mut best_waste: usize = usize::MAX;
         for i in 0..count {
-            let entry_size = self.entries[i].alloc_size;
-            if entry_size == alloc_size {
+            // SAFETY: entries[0..count] are always initialised.
+            let entry = unsafe { self.entries[i].assume_init_read() };
+            if entry.alloc_size == alloc_size {
                 // Exact match — take immediately.
-                let entry = self.entries[i];
                 self.count -= 1;
                 self.bytes -= entry.alloc_size;
                 self.entries[i] = self.entries[self.count];
                 return Some((entry.original_ptr, entry.alloc_size));
             }
-            let waste = entry_size.wrapping_sub(alloc_size);
-            if entry_size >= alloc_size && waste <= Self::CLOSE_SIZE_TOLERANCE && waste < best_waste
+            let waste = entry.alloc_size.wrapping_sub(alloc_size);
+            if entry.alloc_size >= alloc_size
+                && waste <= Self::CLOSE_SIZE_TOLERANCE
+                && waste < best_waste
             {
                 best_waste = waste;
                 best_idx = i;
             }
         }
         if best_idx < count {
-            let entry = self.entries[best_idx];
+            // SAFETY: entries[0..count] are always initialised.
+            let entry = unsafe { self.entries[best_idx].assume_init_read() };
             self.count -= 1;
             self.bytes -= entry.alloc_size;
             self.entries[best_idx] = self.entries[self.count];
@@ -95,7 +102,8 @@ impl LargeCache {
             && (self.count >= LARGE_CACHE_SLOTS || self.bytes + alloc_size > MAX_LARGE_CACHE_BYTES)
         {
             self.count -= 1;
-            let evicted = self.entries[self.count];
+            // SAFETY: entries[0..count] are always initialised.
+            let evicted = unsafe { self.entries[self.count].assume_init_read() };
             self.bytes -= evicted.alloc_size;
             // SAFETY: evicted entry was stored from a valid mmap region.
             unsafe {
@@ -106,10 +114,10 @@ impl LargeCache {
             return false;
         }
         let idx = self.count;
-        self.entries[idx] = LargeCacheEntry {
+        self.entries[idx] = MaybeUninit::new(LargeCacheEntry {
             original_ptr,
             alloc_size,
-        };
+        });
         self.count += 1;
         self.bytes += alloc_size;
         true
@@ -117,7 +125,8 @@ impl LargeCache {
 
     fn flush(&mut self) {
         for i in 0..self.count {
-            let entry = self.entries[i];
+            // SAFETY: entries[0..count] are always initialised.
+            let entry = unsafe { self.entries[i].assume_init_read() };
             // SAFETY: `original_ptr` and `alloc_size` were saved from a
             // valid `mmap` region in `put`.
             unsafe {

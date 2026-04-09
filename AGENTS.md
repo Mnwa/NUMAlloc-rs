@@ -110,6 +110,7 @@ Distributes memory pressure evenly across NUMA nodes. Avoids hotspotting on node
 3. **Cold path** (bag allocation, mmap): acceptable to use atomics/syscalls since this is infrequent.
 4. **Inline aggressively** on hot paths (`#[inline]`).
 5. Avoid heap allocation on alloc/dealloc paths (no `Vec`, `Box`, `String`).
+6. **Use `MaybeUninit`** for arrays and buffers where only a subset of elements are valid (guarded by a count/length field). This avoids wasteful zeroing or initialization of elements that will be overwritten before being read. Example: `LargeCache::entries` uses `MaybeUninit<LargeCacheEntry>` — only entries `[0..count)` are initialised.
 
 ## Dependencies
 
