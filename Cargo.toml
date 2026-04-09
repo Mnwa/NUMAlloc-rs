@@ -2,6 +2,8 @@
 name = "numalloc"
 version = "0.1.0"
 edition = "2024"
+repository = "https://github.com/Mnwa/NUMAlloc-rs"
+authors = ["Mikhail Panfilov <mikhail@panfilov.biz>"]
 
 [dependencies]
 libc = "0.2"
