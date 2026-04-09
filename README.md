@@ -42,64 +42,75 @@ fn main() {
 
 NUMAlloc uses a five-layer allocation hierarchy, from fastest to slowest:
 
-```
-Thread Cache (lock-free) -> Node Heap (lock-free CAS) -> Region (atomic bump) -> Large Cache (per-thread) -> OS mmap
+```mermaid
+graph LR
+    A["Thread Cache<br/>(lock-free)"] --> B["Node Heap<br/>(lock-free CAS)"]
+    B --> C["Region<br/>(atomic bump)"]
+    C --> D["Large Cache<br/>(per-thread)"]
+    D --> E["OS mmap"]
 ```
 
 ### Allocation path (small objects, <= 16 KB)
 
-```
-malloc(size)
-  |
-  v
-Per-Thread Freelist  ----hit----> return pointer (zero synchronization)
-  |
-  miss
-  v
-Per-Node Treiber Stack  --hit--> batch-pop 64 objects, return one
-  |
-  miss
-  v
-Region Bump Allocator  --------> carve 32 KB bag, fill freelist, return one
+```mermaid
+graph TD
+    A["malloc(size)"] --> B["Per-Thread Freelist"]
+    B -- hit --> C["return pointer<br/>(zero synchronization)"]
+    B -- miss --> D["Per-Node Treiber Stack"]
+    D -- hit --> E["batch-pop 64 objects,<br/>return one"]
+    D -- miss --> F["Region Bump Allocator"]
+    F --> G["carve 32 KB bag,<br/>fill freelist, return one"]
 ```
 
 ### Allocation path (large objects, > 16 KB)
 
-```
-malloc(size)
-  |
-  v
-Per-Thread Large Cache  --hit--> reuse cached mmap region (~7.5 ns)
-  |
-  miss
-  v
-OS mmap  -----------------------> fresh mapping, mbind to thread's node
+```mermaid
+graph TD
+    A["malloc(size)"] --> B["Per-Thread Large Cache"]
+    B -- hit --> C["reuse cached mmap region<br/>(~7.5 ns)"]
+    B -- miss --> D["OS mmap"]
+    D --> E["fresh mapping,<br/>mbind to thread's node"]
 ```
 
 ### Deallocation path
 
-```
-free(ptr)
-  |
-  v
-Compute origin node = (ptr - base) / region_size   // O(1), no syscall
-  |
-  +-- small, local?  --> push to per-thread freelist (no locks)
-  |
-  +-- small, remote? --> push to origin node's Treiber stack (lock-free CAS)
-  |
-  +-- large?         --> cache mmap region for reuse (evict old if full)
+```mermaid
+graph TD
+    A["free(ptr)"] --> B["Compute origin node<br/>(ptr - base) / region_size<br/>O(1), no syscall"]
+    B --> C{"Object type?"}
+    C -- "small, local" --> D["push to per-thread freelist<br/>(no locks)"]
+    C -- "small, remote" --> E["push to origin node's<br/>Treiber stack (lock-free CAS)"]
+    C -- "large" --> F["cache mmap region for reuse<br/>(evict old if full)"]
 ```
 
 ### Heap layout
 
 A single contiguous virtual region is mapped at init and divided equally among NUMA nodes. Each sub-region is bound to its physical node via `mbind`. This design enables origin-node identification through simple integer division on any pointer.
 
-```
-|---- Node 0 ----|---- Node 1 ----|---- Node 2 ----|---- Node N ----|
-|  small  | big  |  small  | big  |  small  | big  |  small  | big  |
-     ^                ^                ^                ^
-     bpSmall          bpSmall          bpSmall          bpSmall
+```mermaid
+block-beta
+    columns 8
+    block:n0["Node 0"]:2
+        s0["small"]
+        b0["big"]
+    end
+    block:n1["Node 1"]:2
+        s1["small"]
+        b1["big"]
+    end
+    block:n2["Node 2"]:2
+        s2["small"]
+        b2["big"]
+    end
+    block:nN["Node N"]:2
+        sN["small"]
+        bN["big"]
+    end
+    bp0["bpSmall"] space bp1["bpSmall"] space bp2["bpSmall"] space bpN["bpSmall"] space
+    bp0 --> s0
+    bp1 --> s1
+    bp2 --> s2
+    bpN --> sN
 ```
 
 For the full design document with Mermaid diagrams and benchmark details, see [docs/architecture_design.md](docs/architecture_design.md).
