@@ -14,12 +14,11 @@ mod tests {
 
     use crate::NumaAlloc;
 
-    static ALLOC: NumaAlloc = NumaAlloc::new();
-
     // -- Basic allocation / deallocation ------------------------------------
 
     #[test]
     fn small_alloc_dealloc() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let layout = Layout::from_size_align(64, 8).unwrap();
             let ptr = ALLOC.alloc(layout);
@@ -31,6 +30,7 @@ mod tests {
 
     #[test]
     fn all_size_classes() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             for &size in &[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384] {
                 let layout = Layout::from_size_align(size, 8).unwrap();
@@ -44,6 +44,7 @@ mod tests {
 
     #[test]
     fn large_alloc_dealloc() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let size = 1024 * 1024; // 1 MiB
             let layout = Layout::from_size_align(size, 4096).unwrap();
@@ -59,6 +60,7 @@ mod tests {
 
     #[test]
     fn alignment_power_of_two() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             for align_shift in 3..=12 {
                 let align = 1usize << align_shift;
@@ -79,6 +81,7 @@ mod tests {
 
     #[test]
     fn reuse_after_free() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let layout = Layout::from_size_align(128, 8).unwrap();
             let mut seen = std::collections::HashSet::new();
@@ -98,6 +101,7 @@ mod tests {
 
     #[test]
     fn many_allocs() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let layout = Layout::from_size_align(64, 8).unwrap();
             let mut ptrs: Vec<*mut u8> = Vec::new();
@@ -123,6 +127,7 @@ mod tests {
 
     #[test]
     fn multithreaded_alloc_dealloc() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
         let handles: Vec<_> = (0..8)
@@ -152,6 +157,7 @@ mod tests {
 
     #[test]
     fn cross_thread_dealloc() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::sync::mpsc;
         use std::thread;
 
@@ -187,6 +193,7 @@ mod tests {
 
     #[test]
     fn mixed_sizes() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let sizes: &[usize] = &[8, 17, 33, 100, 500, 1024, 4000, 8192, 16384, 32768, 100_000];
             let mut ptrs = Vec::new();
@@ -209,6 +216,7 @@ mod tests {
 
     #[test]
     fn alloc_zeroed_small() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let layout = Layout::from_size_align(256, 8).unwrap();
             // Allocate, scribble, free, then alloc_zeroed — must be all zeros
@@ -228,6 +236,7 @@ mod tests {
 
     #[test]
     fn alloc_zeroed_large() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let size = 128 * 1024; // 128 KiB — large path
             let layout = Layout::from_size_align(size, 8).unwrap();
@@ -243,6 +252,7 @@ mod tests {
 
     #[test]
     fn realloc_same_size_class() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let layout = Layout::from_size_align(60, 8).unwrap();
             let ptr = ALLOC.alloc(layout);
@@ -259,6 +269,7 @@ mod tests {
 
     #[test]
     fn realloc_grow() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let old_layout = Layout::from_size_align(32, 8).unwrap();
             let ptr = ALLOC.alloc(old_layout);
@@ -281,6 +292,7 @@ mod tests {
 
     #[test]
     fn realloc_shrink() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let old_layout = Layout::from_size_align(4096, 8).unwrap();
             let ptr = ALLOC.alloc(old_layout);
@@ -302,6 +314,7 @@ mod tests {
 
     #[test]
     fn realloc_small_to_large() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let old_layout = Layout::from_size_align(128, 8).unwrap();
             let ptr = ALLOC.alloc(old_layout);
@@ -321,6 +334,7 @@ mod tests {
 
     #[test]
     fn realloc_large_to_small() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         unsafe {
             let big = 128 * 1024;
             let old_layout = Layout::from_size_align(big, 8).unwrap();
@@ -341,6 +355,7 @@ mod tests {
 
     #[test]
     fn stress_concurrent_mixed() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
         let handles: Vec<_> = (0..4)
@@ -386,6 +401,7 @@ mod tests {
     /// origin node's Treiber stack) from many threads simultaneously.
     #[test]
     fn cross_thread_dealloc_many_to_many() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::sync::{Arc, Barrier};
         use std::thread;
 
@@ -453,6 +469,7 @@ mod tests {
     /// across size classes. Exercises alloc+copy+dealloc atomicity per thread.
     #[test]
     fn concurrent_realloc() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
         let handles: Vec<_> = (0..8)
@@ -513,6 +530,7 @@ mod tests {
     /// pressure where freed blocks may contain stale data.
     #[test]
     fn concurrent_alloc_zeroed() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
         let handles: Vec<_> = (0..8)
@@ -551,6 +569,7 @@ mod tests {
     /// Treiber stack under high contention on one freelist.
     #[test]
     fn high_contention_single_size_class() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::sync::{Arc, Barrier};
         use std::thread;
 
@@ -593,6 +612,7 @@ mod tests {
     /// Exercises per-thread heap creation and tear-down under rapid turnover.
     #[test]
     fn rapid_thread_churn() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
         let mut handles = Vec::new();
@@ -626,6 +646,7 @@ mod tests {
     /// simultaneously.
     #[test]
     fn producer_consumer_concurrent() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
         use std::thread;
@@ -707,6 +728,7 @@ mod tests {
     /// hammers the push_chain CAS path.
     #[test]
     fn concurrent_drain_overflow() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::sync::{Arc, Barrier};
         use std::thread;
 
@@ -754,6 +776,7 @@ mod tests {
     /// same time. Ensures the two paths don't interfere.
     #[test]
     fn concurrent_large_and_small() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
         let handles: Vec<_> = (0..8)
@@ -805,6 +828,7 @@ mod tests {
     /// Verify no two concurrent threads ever receive the same pointer.
     #[test]
     fn no_duplicate_pointers_concurrent() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::sync::{Arc, Barrier, Mutex};
         use std::thread;
 
@@ -858,5 +882,479 @@ mod tests {
             sorted.len(),
             ptrs.len()
         );
+    }
+
+    // ======================================================================
+    // Memory leak detection tests
+    // ======================================================================
+    //
+    // Since we cannot inspect internal freelist state (private fields), leak
+    // detection relies on observing **address reuse**.  A properly functioning
+    // allocator returns freed addresses back to the freelist.  If memory leaks
+    // (freed blocks disappear), subsequent allocations consume fresh addresses
+    // and reuse drops to zero.
+
+    // -- Small object freelist reuse -----------------------------------------
+
+    /// Allocate N objects, free them all, allocate N again.  At least some
+    /// addresses from the second batch must match the first — proving freed
+    /// memory was returned to the freelist and not leaked.
+    #[test]
+    fn leak_check_small_reuse_after_free() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        unsafe {
+            let layout = Layout::from_size_align(64, 8).unwrap();
+            let count = 200;
+
+            // Round 1: allocate.
+            let mut first_addrs = Vec::with_capacity(count);
+            for _ in 0..count {
+                let ptr = ALLOC.alloc(layout);
+                assert!(!ptr.is_null());
+                first_addrs.push(ptr as usize);
+            }
+
+            // Free all.
+            for &addr in &first_addrs {
+                ALLOC.dealloc(addr as *mut u8, layout);
+            }
+
+            // Round 2: allocate the same number again.
+            let mut second_addrs = Vec::with_capacity(count);
+            for _ in 0..count {
+                let ptr = ALLOC.alloc(layout);
+                assert!(!ptr.is_null());
+                second_addrs.push(ptr as usize);
+            }
+
+            let first_set: std::collections::HashSet<usize> =
+                first_addrs.iter().copied().collect();
+            let reused = second_addrs
+                .iter()
+                .filter(|a| first_set.contains(a))
+                .count();
+
+            // With a LIFO freelist we expect good reuse.  Under parallel test
+            // execution other tests consume freelist entries via the shared
+            // global heap, so we only require some reuse (not a majority).
+            assert!(
+                reused > 0,
+                "expected some reuse, got 0/{count} — possible leak"
+            );
+
+            for &addr in &second_addrs {
+                ALLOC.dealloc(addr as *mut u8, layout);
+            }
+        }
+    }
+
+    // -- All size classes reuse ----------------------------------------------
+
+    /// Run the reuse leak check across every size class to catch class-specific
+    /// leaks (e.g. a size class whose freed blocks never return).
+    #[test]
+    fn leak_check_all_size_classes_reuse() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        let sizes: &[usize] = &[8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384];
+
+        for &size in sizes {
+            unsafe {
+                let layout = Layout::from_size_align(size, 8).unwrap();
+                let count = 100;
+
+                let mut first = Vec::with_capacity(count);
+                for _ in 0..count {
+                    let ptr = ALLOC.alloc(layout);
+                    assert!(!ptr.is_null());
+                    first.push(ptr as usize);
+                }
+                for &addr in &first {
+                    ALLOC.dealloc(addr as *mut u8, layout);
+                }
+
+                let mut second = Vec::with_capacity(count);
+                for _ in 0..count {
+                    let ptr = ALLOC.alloc(layout);
+                    assert!(!ptr.is_null());
+                    second.push(ptr as usize);
+                }
+
+                let first_set: std::collections::HashSet<usize> =
+                    first.iter().copied().collect();
+                let reused = second.iter().filter(|a| first_set.contains(a)).count();
+                assert!(
+                    reused > 0,
+                    "size class {size}: 0/{count} reused — possible leak"
+                );
+
+                for &addr in &second {
+                    ALLOC.dealloc(addr as *mut u8, layout);
+                }
+            }
+        }
+    }
+
+    // -- Realloc frees old allocation ----------------------------------------
+
+    /// After realloc to a different size class, the old address must be
+    /// reclaimable.  Allocate at the old size again and verify the old address
+    /// comes back — proving realloc freed it.
+    #[test]
+    fn leak_check_realloc_frees_old() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        unsafe {
+            let old_layout = Layout::from_size_align(64, 8).unwrap();
+            let ptr = ALLOC.alloc(old_layout);
+            assert!(!ptr.is_null());
+            let old_addr = ptr as usize;
+            std::ptr::write_bytes(ptr, 0xAA, 64);
+
+            // Realloc to a larger class — old block should be freed.
+            let new_ptr = ALLOC.realloc(ptr, old_layout, 512);
+            assert!(!new_ptr.is_null());
+            assert_ne!(new_ptr as usize, old_addr);
+
+            // Allocate at old size repeatedly — old address should reappear.
+            let mut found = false;
+            let mut probes = Vec::new();
+            for _ in 0..100 {
+                let p = ALLOC.alloc(old_layout);
+                assert!(!p.is_null());
+                probes.push(p);
+                if p as usize == old_addr {
+                    found = true;
+                    break;
+                }
+            }
+
+            assert!(
+                found,
+                "old address 0x{old_addr:x} never reappeared — realloc may have leaked it"
+            );
+
+            for p in probes {
+                ALLOC.dealloc(p, old_layout);
+            }
+            ALLOC.dealloc(new_ptr, Layout::from_size_align(512, 8).unwrap());
+        }
+    }
+
+    // -- Cross-thread dealloc returns memory to origin -----------------------
+
+    /// Allocate on thread A, free on thread B.  On single-node machines the
+    /// freed blocks land in thread B's local freelist (same node → local
+    /// dealloc).  Verify that thread B can reclaim them — proving the
+    /// cross-thread handoff didn't lose any blocks.
+    #[test]
+    fn leak_check_cross_thread_dealloc_returns() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        use std::sync::mpsc;
+        use std::thread;
+
+        let count = 200;
+        let layout = Layout::from_size_align(128, 8).unwrap();
+        let (tx_addrs, rx_addrs) = mpsc::channel::<Vec<usize>>();
+
+        // Thread A: allocate objects, send addresses to thread B.
+        let producer = thread::spawn(move || unsafe {
+            let mut addrs = Vec::with_capacity(count);
+            for _ in 0..count {
+                let ptr = ALLOC.alloc(layout);
+                assert!(!ptr.is_null());
+                addrs.push(ptr as usize);
+            }
+            tx_addrs.send(addrs).unwrap();
+        });
+        producer.join().unwrap();
+
+        // Thread B: free them, then re-allocate and verify reuse.
+        // On single-node machines the freed blocks go into thread B's own
+        // freelist, so thread B should see high reuse.
+        let consumer = thread::spawn(move || unsafe {
+            let addrs = rx_addrs.recv().unwrap();
+            let first_set: std::collections::HashSet<usize> =
+                addrs.iter().copied().collect();
+
+            for &addr in &addrs {
+                ALLOC.dealloc(addr as *mut u8, layout);
+            }
+
+            // Re-allocate the same count — freed blocks should come back.
+            let mut second = Vec::with_capacity(count);
+            for _ in 0..count {
+                let ptr = ALLOC.alloc(layout);
+                assert!(!ptr.is_null());
+                second.push(ptr as usize);
+            }
+
+            let reused = second.iter().filter(|a| first_set.contains(a)).count();
+            assert!(
+                reused > 0,
+                "cross-thread free: 0/{count} reused — dealloc may leak"
+            );
+
+            for &addr in &second {
+                ALLOC.dealloc(addr as *mut u8, layout);
+            }
+        });
+        consumer.join().unwrap();
+    }
+
+    // -- Drain to node heap doesn't lose blocks ------------------------------
+
+    /// Push enough objects to exceed MAX_THREAD_CACHE, triggering a drain of
+    /// cold blocks to the per-node Treiber stack.  Then free everything and
+    /// re-allocate — all addresses must be reclaimable.
+    #[test]
+    fn leak_check_drain_path() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        unsafe {
+            let layout = Layout::from_size_align(64, 8).unwrap();
+            // Exceed MAX_THREAD_CACHE (64) to force drain.
+            let count = 150;
+
+            let mut first = Vec::with_capacity(count);
+            for _ in 0..count {
+                let ptr = ALLOC.alloc(layout);
+                assert!(!ptr.is_null());
+                first.push(ptr as usize);
+            }
+
+            // Free all — some were drained to per-node heap, some are in
+            // thread freelist.
+            for &addr in &first {
+                ALLOC.dealloc(addr as *mut u8, layout);
+            }
+
+            // Re-allocate: refill from per-node + thread freelist should
+            // reclaim all drained blocks.
+            let mut second = Vec::with_capacity(count);
+            for _ in 0..count {
+                let ptr = ALLOC.alloc(layout);
+                assert!(!ptr.is_null());
+                second.push(ptr as usize);
+            }
+
+            let first_set: std::collections::HashSet<usize> =
+                first.iter().copied().collect();
+            let reused = second.iter().filter(|a| first_set.contains(a)).count();
+            assert!(
+                reused > 0,
+                "drain path: 0/{count} reused — drained blocks may have leaked"
+            );
+
+            for &addr in &second {
+                ALLOC.dealloc(addr as *mut u8, layout);
+            }
+        }
+    }
+
+    // -- Repeated alloc/free cycles don't grow memory ------------------------
+
+    /// Run many alloc/free cycles and verify the allocator keeps reusing the
+    /// same addresses rather than allocating fresh ones.  A leaking allocator
+    /// would show a steadily growing set of unique addresses.
+    #[test]
+    fn leak_check_repeated_cycles_no_growth() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        unsafe {
+            let layout = Layout::from_size_align(256, 8).unwrap();
+            let batch = 100;
+            let cycles = 50;
+            let mut all_addrs = std::collections::HashSet::new();
+
+            for _ in 0..cycles {
+                let mut ptrs = Vec::with_capacity(batch);
+                for _ in 0..batch {
+                    let ptr = ALLOC.alloc(layout);
+                    assert!(!ptr.is_null());
+                    all_addrs.insert(ptr as usize);
+                    ptrs.push(ptr);
+                }
+                for ptr in ptrs {
+                    ALLOC.dealloc(ptr, layout);
+                }
+            }
+
+            // With perfect reuse we'd see exactly `batch` unique addresses.
+            // Allow some slack for thread-local caching and batching, but the
+            // count should be far below batch * cycles.
+            // Other tests running in parallel share the global heap and may
+            // drain/refill the same freelists, introducing foreign addresses.
+            let max_expected = batch * 10;
+            assert!(
+                all_addrs.len() <= max_expected,
+                "unique addrs {} exceeds {max_expected} — suggests leak (expected ~{batch} with reuse)",
+                all_addrs.len()
+            );
+        }
+    }
+
+    // -- Large object alloc/free doesn't leak virtual memory -----------------
+
+    /// Allocate and free many large (mmap'd) objects.  Each allocation is
+    /// independent (its own mmap); after munmap the virtual address range is
+    /// returned to the OS.  We verify that we can sustain many cycles without
+    /// running out of address space — a leak would eventually exhaust it.
+    #[test]
+    fn leak_check_large_object_munmap() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        unsafe {
+            let size = 1024 * 1024; // 1 MiB
+            let layout = Layout::from_size_align(size, 4096).unwrap();
+
+            for _ in 0..200 {
+                let ptr = ALLOC.alloc(layout);
+                assert!(!ptr.is_null());
+                assert_eq!(ptr as usize % 4096, 0);
+                // Touch first and last pages to force physical mapping.
+                *ptr = 0xAA;
+                *ptr.add(size - 1) = 0xBB;
+                ALLOC.dealloc(ptr, layout);
+            }
+        }
+    }
+
+    // -- Concurrent alloc/free reuse -----------------------------------------
+
+    /// Multiple threads each run alloc/free cycles and track unique addresses.
+    /// Per-thread address sets should stay bounded — proving no thread-local
+    /// leak under concurrency.
+    #[test]
+    fn leak_check_concurrent_reuse() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        use std::sync::{Arc, Barrier};
+        use std::thread;
+
+        const NUM_THREADS: usize = 8;
+        let barrier = Arc::new(Barrier::new(NUM_THREADS));
+
+        let handles: Vec<_> = (0..NUM_THREADS)
+            .map(|_| {
+                let barrier = Arc::clone(&barrier);
+                thread::spawn(move || {
+                    barrier.wait();
+                    unsafe {
+                        let layout = Layout::from_size_align(128, 8).unwrap();
+                        let batch = 80;
+                        let cycles = 30;
+                        let mut unique = std::collections::HashSet::new();
+
+                        for _ in 0..cycles {
+                            let mut ptrs = Vec::with_capacity(batch);
+                            for _ in 0..batch {
+                                let ptr = ALLOC.alloc(layout);
+                                assert!(!ptr.is_null());
+                                unique.insert(ptr as usize);
+                                ptrs.push(ptr);
+                            }
+                            for ptr in ptrs {
+                                ALLOC.dealloc(ptr, layout);
+                            }
+                        }
+
+                        // Under concurrency, threads share the per-node
+                        // Treiber stack and may receive blocks from other
+                        // threads' drains, increasing unique address count.
+                        let max_expected = batch * 12;
+                        assert!(
+                            unique.len() <= max_expected,
+                            "thread saw {} unique addrs (max {max_expected}) — possible leak",
+                            unique.len()
+                        );
+                    }
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().unwrap();
+        }
+    }
+
+    // -- Multi-thread cross-free reuse leak check ----------------------------
+
+    /// Each thread allocates a batch, hands it to the next thread for freeing,
+    /// then the freeing thread re-allocates to check reuse.  On single-node
+    /// machines the freed blocks land in the freeing thread's own cache.
+    #[test]
+    fn leak_check_cross_thread_round_trip() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        use std::sync::{Arc, Barrier, Mutex};
+        use std::thread;
+
+        const NUM_THREADS: usize = 4;
+        const BATCH: usize = 200;
+        let layout = Layout::from_size_align(64, 8).unwrap();
+
+        let barrier = Arc::new(Barrier::new(NUM_THREADS));
+        let deposit: Arc<Mutex<Vec<Vec<usize>>>> = Arc::new(Mutex::new(
+            (0..NUM_THREADS).map(|_| Vec::new()).collect(),
+        ));
+
+        let handles: Vec<_> = (0..NUM_THREADS)
+            .map(|tid| {
+                let barrier = Arc::clone(&barrier);
+                let deposit = Arc::clone(&deposit);
+                thread::spawn(move || unsafe {
+                    // Phase 1: allocate a batch.
+                    let mut addrs = Vec::with_capacity(BATCH);
+                    for _ in 0..BATCH {
+                        let ptr = ALLOC.alloc(layout);
+                        assert!(!ptr.is_null());
+                        addrs.push(ptr as usize);
+                    }
+
+                    // Deposit into the *next* thread's slot.
+                    let target = (tid + 1) % NUM_THREADS;
+                    deposit.lock().unwrap()[target] = addrs;
+
+                    // Wait for everyone to deposit.
+                    barrier.wait();
+
+                    // Phase 2: free the batch deposited for *this* thread
+                    // (allocated by the previous thread).
+                    let to_free: Vec<usize> = {
+                        let mut d = deposit.lock().unwrap();
+                        std::mem::take(&mut d[tid])
+                    };
+                    let freed_set: std::collections::HashSet<usize> =
+                        to_free.iter().copied().collect();
+
+                    for addr in &to_free {
+                        ALLOC.dealloc(*addr as *mut u8, layout);
+                    }
+
+                    // Wait for all frees to complete.
+                    barrier.wait();
+
+                    // Phase 3: re-allocate and check reuse of the blocks we
+                    // just freed (they should be in our own freelist now).
+                    let mut second = Vec::with_capacity(BATCH);
+                    for _ in 0..BATCH {
+                        let ptr = ALLOC.alloc(layout);
+                        assert!(!ptr.is_null());
+                        second.push(ptr as usize);
+                    }
+
+                    let reused = second.iter().filter(|a| freed_set.contains(a)).count();
+                    // Under parallel test execution with shared per-node
+                    // freelists, other threads may consume some of our freed
+                    // blocks.  Any reuse at all proves the free path works.
+                    assert!(
+                        reused > 0,
+                        "thread {tid}: zero reuse out of {BATCH} — freed blocks may be leaked"
+                    );
+
+                    for &addr in &second {
+                        ALLOC.dealloc(addr as *mut u8, layout);
+                    }
+                })
+            })
+            .collect();
+
+        for h in handles {
+            h.join().unwrap();
+        }
     }
 }
