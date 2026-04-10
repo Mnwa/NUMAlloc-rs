@@ -382,39 +382,58 @@ The large object cache eliminates syscall overhead for repeated large allocation
 
 ### Micro-benchmarks (single-threaded alloc+dealloc, steady state)
 
-| Size   | numalloc   | system (glibc) | mimalloc | jemalloc |
-|--------|------------|----------------|----------|----------|
-| 8 B    | **7.4 ns** | 13.8 ns        | 10.9 ns  | 9.2 ns   |
-| 64 B   | **7.4 ns** | 15.4 ns        | 11.1 ns  | 9.4 ns   |
-| 256 B  | **7.3 ns** | 17.3 ns        | 12.4 ns  | 9.3 ns   |
-| 1 KB   | **7.4 ns** | 31.2 ns        | 15.7 ns  | 9.8 ns   |
-| 4 KB   | **7.4 ns** | 25.1 ns        | 20.4 ns  | 11.3 ns  |
-| 16 KB  | **7.3 ns** | 31.7 ns        | 19.3 ns  | 23.2 ns  |
-| 64 KB  | **7.7 ns** | 692 ns         | 19.4 ns  | 104 ns   |
-| 256 KB | **8.4 ns** | 707 ns         | 956 ns   | 105 ns   |
+| Size   | numalloc     | system (glibc) | mimalloc  | jemalloc  |
+|--------|--------------|----------------|-----------|-----------|
+| 8 B    | 6.5 ns       | 5.4 ns         | 5.2 ns    | **3.1 ns** |
+| 64 B   | 7.0 ns       | 5.9 ns         | 5.4 ns    | **3.2 ns** |
+| 256 B  | 6.9 ns       | 5.8 ns         | 6.1 ns    | **3.3 ns** |
+| 1 KB   | 7.0 ns       | 5.9 ns         | 6.8 ns    | **3.6 ns** |
+| 4 KB   | 6.6 ns       | 27.7 ns        | 10.4 ns   | **4.4 ns** |
+| 16 KB  | **6.9 ns**   | 28.0 ns        | 10.3 ns   | 11.9 ns    |
+| 64 KB  | **6.0 ns**   | 27.5 ns        | 10.2 ns   | 103.5 ns   |
+| 256 KB | **5.9 ns**   | 27.0 ns        | 682.6 ns  | 104.2 ns   |
 
-numalloc is the fastest allocator across all tested sizes, with a flat ~7.5 ns profile from 8 B through 256 KB thanks to the per-thread freelist (small) and large object cache (large).
+numalloc has the flattest profile of all tested allocators, maintaining ~6–7 ns from 8 B through 256 KB thanks to the per-thread freelist (small) and large object cache (large). It is the fastest allocator for objects ≥ 16 KB.
 
 ### Multi-threaded alloc+dealloc (10,000 ops/thread)
 
-| Config          | numalloc             | system           | mimalloc         | jemalloc         |
-|-----------------|----------------------|------------------|------------------|------------------|
-| 64 B, 2 threads | **108 microseconds** | 658 microseconds | 146 microseconds | 128 microseconds |
-| 64 B, 4 threads | **152 microseconds** | 1.1 ms           | 177 microseconds | 159 microseconds |
-| 1 KB, 8 threads | **208 microseconds** | 2.36 ms          | 299 microseconds | 232 microseconds |
-| 4 KB, 2 threads | **106 microseconds** | 305 microseconds | 243 microseconds | 151 microseconds |
-| 4 KB, 8 threads | **239 microseconds** | 469 microseconds | 373 microseconds | 254 microseconds |
+| Config          | numalloc         | system           | mimalloc         | jemalloc             |
+|-----------------|------------------|------------------|------------------|----------------------|
+| 64 B, 2 threads | 201 microseconds | 124 microseconds | 124 microseconds | **114 microseconds** |
+| 64 B, 4 threads | 247 microseconds | 171 microseconds | **168 microseconds** | 169 microseconds |
+| 1 KB, 8 threads | 277 microseconds | **251 microseconds** | 287 microseconds | 270 microseconds |
+| 4 KB, 2 threads | 143 microseconds | 297 microseconds | 181 microseconds | **132 microseconds** |
+| 4 KB, 8 threads | **276 microseconds** | 489 microseconds | 345 microseconds | 284 microseconds |
 
-numalloc scales well with thread count due to its lock-free per-node Treiber stacks and zero-synchronization per-thread freelists.
+numalloc scales well for larger objects at high thread counts due to its lock-free per-node Treiber stacks and zero-synchronization per-thread freelists. On non-NUMA hardware the NUMA binding overhead is visible for small objects; on NUMA machines the locality gains dominate.
 
 ### Bulk alloc+free (1000 items, single-threaded)
 
-| Size   | numalloc               | system            | mimalloc             | jemalloc          |
-|--------|------------------------|-------------------|----------------------|-------------------|
-| 64 B   | **8.2 microseconds**   | 16.8 microseconds | 8.0 microseconds     | 17.1 microseconds |
-| 4 KB   | **24.3 microseconds**  | 88.1 microseconds | 24.4 microseconds    | 46.5 microseconds |
-| 64 KB  | **57.2 microseconds**  | 709 microseconds  | 43.5 microseconds    | 508 microseconds  |
-| 256 KB | **37.4 microseconds**  | 704 microseconds  | 155 microseconds     | 545 microseconds  |
+| Size   | numalloc              | system            | mimalloc              | jemalloc          |
+|--------|-----------------------|-------------------|-----------------------|-------------------|
+| 64 B   | 6.1 microseconds      | 24.7 microseconds | **3.9 microseconds**  | 8.3 microseconds  |
+| 4 KB   | 26.6 microseconds     | 574 microseconds  | **25.5 microseconds** | 105 microseconds  |
+| 64 KB  | **30.8 microseconds** | 835 microseconds  | 52.5 microseconds     | 220 microseconds  |
+| 256 KB | **15.4 microseconds** | 1.09 ms           | 123 microseconds      | 218 microseconds  |
+
+### Axum HTTP server benchmark (4 threads, 100 connections, 10s)
+
+Tested on Ubuntu, Intel Core i7-13700K, 64 GB RAM.
+
+| Endpoint         | numalloc          | system         | mimalloc          |
+|------------------|-------------------|----------------|-------------------|
+| `/small` ~32 B   | **759,327 rps**   | 722,577 rps    | 739,654 rps       |
+| `/medium` ~256 B | **733,566 rps**   | 705,512 rps    | 717,661 rps       |
+| `/large` ~16 KB  | 343,262 rps       | 299,309 rps    | **357,168 rps**   |
+| `/bulk` ~64 KB   | 110,965 rps       | 93,805 rps     | **113,273 rps**   |
+
+| Allocator | RSS after load |
+|-----------|----------------|
+| system    | **15 MB**      |
+| numalloc  | 20 MB          |
+| mimalloc  | 37 MB          |
+
+numalloc leads on small/medium response sizes where allocation overhead dominates. For large responses the allocator difference is dwarfed by serialization and I/O costs, where mimalloc edges ahead. numalloc uses 46% less RSS than mimalloc.
 
 ### NUMA-specific results (8-node Intel Xeon, 128 cores)
 

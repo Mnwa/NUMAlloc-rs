@@ -127,46 +127,48 @@ For the full design document with Mermaid diagrams and benchmark details, see [d
 
 Single-threaded alloc+dealloc (steady state, lower is better):
 
-| Size   | numalloc   | system (glibc) | mimalloc | jemalloc |
-|--------|------------|----------------|----------|----------|
-| 8 B    | **7.4 ns** | 13.8 ns        | 10.9 ns  | 9.2 ns   |
-| 64 B   | **7.4 ns** | 15.4 ns        | 11.1 ns  | 9.4 ns   |
-| 1 KB   | **7.4 ns** | 31.2 ns        | 15.7 ns  | 9.8 ns   |
-| 16 KB  | **7.3 ns** | 31.7 ns        | 19.3 ns  | 23.2 ns  |
-| 64 KB  | **7.7 ns** | 692 ns         | 19.4 ns  | 104 ns   |
-| 256 KB | **8.4 ns** | 707 ns         | 956 ns   | 105 ns   |
+| Size   | numalloc     | system (glibc) | mimalloc  | jemalloc   |
+|--------|--------------|----------------|-----------|------------|
+| 8 B    | 6.5 ns       | 5.4 ns         | 5.2 ns    | **3.1 ns** |
+| 64 B   | 7.0 ns       | 5.9 ns         | 5.4 ns    | **3.2 ns** |
+| 1 KB   | 7.0 ns       | 5.9 ns         | 6.8 ns    | **3.6 ns** |
+| 16 KB  | **6.9 ns**   | 28.0 ns        | 10.3 ns   | 11.9 ns    |
+| 64 KB  | **6.0 ns**   | 27.5 ns        | 10.2 ns   | 103.5 ns   |
+| 256 KB | **5.9 ns**   | 27.0 ns        | 682.6 ns  | 104.2 ns   |
 
 Bulk alloc+free (1000 items, single-threaded, lower is better):
 
-| Size   | numalloc        | system  | mimalloc | jemalloc |
-|--------|-----------------|---------|----------|----------|
-| 64 B   | **8.2 us**      | 16.8 us | 8.0 us   | 17.1 us  |
-| 4 KB   | **24.3 us**     | 88.1 us | 24.4 us  | 46.5 us  |
-| 64 KB  | 57.2 us         | 709 us  | 43.5 us  | 508 us   |
-| 256 KB | **37.4 us**     | 704 us  | 155 us   | 545 us   |
+| Size   | numalloc       | system   | mimalloc      | jemalloc |
+|--------|----------------|----------|---------------|----------|
+| 64 B   | 6.1 us         | 24.7 us  | **3.9 us**    | 8.3 us   |
+| 4 KB   | 26.6 us        | 574 us   | **25.5 us**   | 105 us   |
+| 64 KB  | **30.8 us**    | 835 us   | 52.5 us       | 220 us   |
+| 256 KB | **15.4 us**    | 1.09 ms  | 123 us        | 218 us   |
 
 Multi-threaded alloc+dealloc (10,000 ops/thread, lower is better):
 
-| Config          | numalloc   | system  | mimalloc | jemalloc |
-|-----------------|------------|---------|----------|----------|
-| 64 B, 4 threads | **153 us** | 1.2 ms  | 172 us   | 158 us   |
-| 1 KB, 8 threads | **213 us** | 2.9 ms  | 293 us   | 221 us   |
-| 4 KB, 8 threads | **213 us** | 3.3 ms  | 337 us   | 245 us   |
+| Config          | numalloc   | system  | mimalloc     | jemalloc |
+|-----------------|------------|---------|--------------|----------|
+| 64 B, 4 threads | 247 us     | 171 us  | **168 us**   | 169 us   |
+| 1 KB, 8 threads | 277 us     | **251 us** | 287 us    | 270 us   |
+| 4 KB, 8 threads | **276 us** | 489 us  | 345 us       | 284 us   |
 
 Axum HTTP server benchmark (4 threads, 100 connections, 10s, higher is better):
 
-| Endpoint         | numalloc       | system         | mimalloc       |
-|------------------|----------------|----------------|----------------|
-| `/small` ~32 B   | **49,124 rps** | 48,286 rps     | 48,310 rps     |
-| `/medium` ~256 B | **49,135 rps** | 48,892 rps     | 49,017 rps     |
-| `/large` ~16 KB  | **46,600 rps** | 46,244 rps     | 46,511 rps     |
-| `/bulk` ~64 KB   | **37,558 rps** | 35,121 rps     | 37,155 rps     |
+| Endpoint         | numalloc          | system         | mimalloc          |
+|------------------|-------------------|----------------|-------------------|
+| `/small` ~32 B   | **759,327 rps**   | 722,577 rps    | 739,654 rps       |
+| `/medium` ~256 B | **733,566 rps**   | 705,512 rps    | 717,661 rps       |
+| `/large` ~16 KB  | 343,262 rps       | 299,309 rps    | **357,168 rps**   |
+| `/bulk` ~64 KB   | 110,965 rps       | 93,805 rps     | **113,273 rps**   |
 
 | Allocator | RSS after load |
 |-----------|----------------|
-| system    | **11 MB**      |
-| numalloc  | 16 MB          |
-| mimalloc  | 27 MB          |
+| system    | **15 MB**      |
+| numalloc  | 20 MB          |
+| mimalloc  | 37 MB          |
+
+*Tested on Ubuntu, Intel Core i7-13700K, 64 GB RAM.*
 
 Run benchmarks yourself with `cargo bench` or `cd examples/axum-bench && bash bench.sh`.
 
