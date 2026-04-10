@@ -17,10 +17,6 @@ const LARGE_CACHE_SLOTS: usize = 1024;
 /// Maximum total bytes held in the large cache before we start evicting.
 const MAX_LARGE_CACHE_BYTES: usize = 512 * 1024 * 1024; // 512 MiB
 
-/// Only call madvise for cached regions larger than this threshold.
-/// Below this, the syscall overhead exceeds the memory savings.
-pub const MADVISE_THRESHOLD: usize = 512 * 1024; // 512 KiB
-
 /// A cached large-object mmap region ready for reuse.
 #[derive(Clone, Copy)]
 struct LargeCacheEntry {

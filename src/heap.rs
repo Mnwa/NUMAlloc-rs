@@ -82,7 +82,9 @@ unsafe impl Sync for NodeRegion {}
 pub struct GlobalHeap {
     base: NonNull<u8>,
     total_size: usize,
-    region_size: usize,
+    /// log2(region_size) — used for O(1) node lookup via bit-shift instead of
+    /// expensive integer division.
+    region_shift: u32,
     num_nodes: usize,
     nodes: [NodeRegion; MAX_NODES],
 }
@@ -92,6 +94,8 @@ impl GlobalHeap {
     pub fn new(num_nodes: usize) -> Option<Self> {
         let num_nodes = num_nodes.clamp(1, MAX_NODES);
         let region_size = DEFAULT_REGION_SIZE;
+        debug_assert!(region_size.is_power_of_two());
+        let region_shift = region_size.trailing_zeros();
         let total_size = region_size * num_nodes;
 
         let base = unsafe { platform::mmap_anonymous(total_size)? };
@@ -112,7 +116,7 @@ impl GlobalHeap {
         Some(Self {
             base,
             total_size,
-            region_size,
+            region_shift,
             num_nodes,
             nodes,
         })
@@ -126,13 +130,7 @@ impl GlobalHeap {
         if offset >= self.total_size {
             return None;
         }
-        Some(offset / self.region_size)
-    }
-
-    /// Check whether `ptr` belongs to this heap's region.
-    #[inline]
-    pub fn is_owned(&self, ptr: NonNull<u8>) -> bool {
-        self.node_for_ptr(ptr).is_some()
+        Some(offset >> self.region_shift)
     }
 
     #[inline]

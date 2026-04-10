@@ -127,19 +127,3 @@ pub fn page_size() -> usize {
     ps
 }
 
-/// Advise the kernel that the given memory range is no longer needed.
-/// The kernel may reclaim the physical pages; future accesses will
-/// zero-fault them back in.
-///
-/// # Safety
-/// `ptr` and `size` must describe a valid mmap'd region.
-pub unsafe fn madvise_dontneed(ptr: NonNull<u8>, size: usize) {
-    #[cfg(target_os = "macos")]
-    unsafe {
-        libc::madvise(ptr.as_ptr() as *mut libc::c_void, size, libc::MADV_FREE);
-    }
-    #[cfg(not(target_os = "macos"))]
-    unsafe {
-        libc::madvise(ptr.as_ptr() as *mut libc::c_void, size, libc::MADV_DONTNEED);
-    }
-}

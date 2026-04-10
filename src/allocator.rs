@@ -8,7 +8,7 @@ use crate::freelist::FreeBlock;
 use crate::heap::GlobalHeap;
 use crate::platform;
 use crate::size_class::{self, SMALL_LIMIT};
-use crate::thread_heap::{MADVISE_THRESHOLD, PerThreadHeap, REFILL_BATCH, max_thread_cache};
+use crate::thread_heap::{PerThreadHeap, REFILL_BATCH, max_thread_cache};
 
 // ---------------------------------------------------------------------------
 // Per-thread heap guard (cleanup on thread exit)
@@ -179,7 +179,11 @@ unsafe impl GlobalAlloc for NumaAlloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         // During heap initialisation, fall back to the system allocator to
         // prevent re-entrant deadlock (heap init reads /sys via std::fs).
-        if self.initializing.load(Ordering::Acquire) {
+        // Relaxed is sufficient: the only thread that sees `true` is the
+        // initialising thread itself (same-thread stores are always visible),
+        // and OnceLock provides the Acquire/Release synchronisation for the
+        // heap pointer.
+        if self.initializing.load(Ordering::Relaxed) {
             return unsafe { System.alloc(layout) };
         }
 
@@ -196,11 +200,13 @@ unsafe impl GlobalAlloc for NumaAlloc {
         };
 
         let th = unsafe { self.thread_heap().as_mut() };
-        let heap = self.heap();
         let node = th.node_id;
+        // SAFETY: global_heap was set in PerThreadHeap::new and the
+        // GlobalHeap lives in a static OnceLock that outlives all threads.
+        let heap = unsafe { th.global_heap.as_ref() };
         let fl = th.freelist_mut(class_idx);
 
-        // 1. Try per-thread freelist.
+        // 1. Try per-thread freelist — hottest path, no atomics, no heap lookup.
         if let Some(block) = fl.pop() {
             return block.as_ptr().cast();
         }
@@ -246,7 +252,7 @@ unsafe impl GlobalAlloc for NumaAlloc {
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
         // During heap initialisation, all allocations go through the system
         // allocator, so deallocations must as well.
-        if self.initializing.load(Ordering::Acquire) {
+        if self.initializing.load(Ordering::Relaxed) {
             return unsafe { System.dealloc(ptr, layout) };
         }
 
@@ -259,26 +265,30 @@ unsafe impl GlobalAlloc for NumaAlloc {
             return;
         }
 
-        let heap = self.heap();
-
-        if !heap.is_owned(ptr) {
-            // Pointer not from our region — treat as large (mmap'd).
-            unsafe { dealloc_large(ptr, Some(self)) };
-            return;
-        }
-
         let class_idx = match size_class::size_class_index(effective_size) {
             Some(i) => i,
             None => return,
         };
 
+        // Get the thread heap first — this gives us the global_heap pointer
+        // via a simple deref (no OnceLock overhead).
+        let th = unsafe { self.thread_heap().as_mut() };
+        // SAFETY: global_heap is set once in PerThreadHeap::new and the
+        // GlobalHeap lives in a static OnceLock that outlives all threads.
+        let heap = unsafe { th.global_heap.as_ref() };
+        let current_node = th.node_id;
+
+        // node_for_ptr does bounds check + node lookup in one shot.
+        // If the pointer is not from our region (e.g. allocated via System
+        // during init fallback), treat it as a large mmap'd object.
         let origin_node = match heap.node_for_ptr(ptr) {
             Some(n) => n,
-            None => return,
+            None => {
+                unsafe { dealloc_large(ptr, Some(self)) };
+                return;
+            }
         };
 
-        let th = unsafe { self.thread_heap().as_mut() };
-        let current_node = th.node_id;
         let block = ptr.cast::<FreeBlock>();
 
         if origin_node == current_node {
@@ -424,19 +434,16 @@ impl NumaAlloc {
 
     /// Try to cache a freed large mapping; returns `false` if the cache is
     /// full (caller should `munmap`).
+    ///
+    /// Physical pages are **not** released here — the cached region retains its
+    /// pages so that a subsequent reuse avoids costly zero-fault page-ins.
+    /// Pages are released only when an entry is evicted from the cache (via
+    /// `munmap`).
     #[inline]
     fn try_cache_large(&self, original: NonNull<u8>, alloc_size: usize) -> bool {
         if let Ok(Some(mut th)) = TH_PTR.try_with(ThreadHeapSlot::get) {
             let th = unsafe { th.as_mut() };
             if th.large_cache_put(original, alloc_size) {
-                // Only release physical pages for large regions; for smaller
-                // ones the madvise syscall overhead exceeds the savings.
-                if alloc_size >= MADVISE_THRESHOLD {
-                    // SAFETY: original/alloc_size describe a valid mmap region.
-                    unsafe {
-                        platform::madvise_dontneed(original, alloc_size);
-                    }
-                }
                 return true;
             }
         }
