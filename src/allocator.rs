@@ -2,7 +2,7 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::ptr::NonNull;
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use crate::freelist::FreeBlock;
 use crate::heap::GlobalHeap;
@@ -96,6 +96,14 @@ pub struct NumaAlloc {
     heap: OnceLock<GlobalHeap>,
     /// Round-robin counter for assigning threads to NUMA nodes.
     next_node: AtomicUsize,
+    /// Guard to prevent re-entrant deadlock during heap initialisation.
+    ///
+    /// `detect_topology()` uses `std::fs::read_dir` which allocates through
+    /// the global allocator.  If the global allocator *is* this NumaAlloc
+    /// instance, the re-entrant `alloc` call would deadlock on the `OnceLock`.
+    /// While this flag is set, all allocation/deallocation requests on the
+    /// initialising thread are forwarded to the system allocator.
+    initializing: AtomicBool,
 }
 
 // Safety: `OnceLock` and `AtomicUsize` are both `Send + Sync`.  The
@@ -115,13 +123,18 @@ impl NumaAlloc {
         Self {
             heap: OnceLock::new(),
             next_node: AtomicUsize::new(0),
+            initializing: AtomicBool::new(false),
         }
     }
 
     fn heap(&self) -> &GlobalHeap {
         self.heap.get_or_init(|| {
+            self.initializing.store(true, Ordering::Release);
             let topo = platform::detect_topology();
-            GlobalHeap::new(topo.num_nodes).expect("numalloc: failed to mmap heap region")
+            let heap =
+                GlobalHeap::new(topo.num_nodes).expect("numalloc: failed to mmap heap region");
+            self.initializing.store(false, Ordering::Release);
+            heap
         })
     }
 
@@ -139,9 +152,6 @@ impl NumaAlloc {
         let heap = self.heap();
         let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
 
-        // Bind thread to its NUMA node (no-op on non-Linux).
-        platform::bind_thread_to_node(node);
-
         // Allocate PerThreadHeap from the system allocator.
         let layout = Layout::new::<PerThreadHeap>();
         let raw = unsafe { System.alloc(layout) } as *mut PerThreadHeap;
@@ -153,13 +163,26 @@ impl NumaAlloc {
                 .write(PerThreadHeap::new(node, NonNull::from(heap)));
         }
 
+        // Register in TLS BEFORE bind_thread_to_node, which allocates
+        // (std::fs::read_to_string).  Without this, the recursive alloc call
+        // would see TH_PTR as empty and re-enter this slow path infinitely.
         let _ = TH_PTR.try_with(|slot| slot.set(Some(nn)));
+
+        // Bind thread to its NUMA node (no-op on non-Linux).
+        platform::bind_thread_to_node(node);
+
         nn
     }
 }
 
 unsafe impl GlobalAlloc for NumaAlloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        // During heap initialisation, fall back to the system allocator to
+        // prevent re-entrant deadlock (heap init reads /sys via std::fs).
+        if self.initializing.load(Ordering::Acquire) {
+            return unsafe { System.alloc(layout) };
+        }
+
         let effective_size = layout.size().max(layout.align());
 
         // --- large object path ---
@@ -221,6 +244,12 @@ unsafe impl GlobalAlloc for NumaAlloc {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        // During heap initialisation, all allocations go through the system
+        // allocator, so deallocations must as well.
+        if self.initializing.load(Ordering::Acquire) {
+            return unsafe { System.dealloc(ptr, layout) };
+        }
+
         let Some(ptr) = NonNull::new(ptr) else { return };
         let effective_size = layout.size().max(layout.align());
 
