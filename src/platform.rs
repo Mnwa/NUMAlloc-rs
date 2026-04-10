@@ -126,4 +126,3 @@ pub fn page_size() -> usize {
     CACHED.store(ps, Ordering::Relaxed);
     ps
 }
-
