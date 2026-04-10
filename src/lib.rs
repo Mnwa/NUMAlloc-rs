@@ -1285,8 +1285,13 @@ mod tests {
         use std::thread;
 
         const NUM_THREADS: usize = 4;
-        const BATCH: usize = 200;
-        let layout = Layout::from_size_align(64, 8).unwrap();
+        const BATCH: usize = 32;
+        // Use 32 KB objects (size class 12): bag_size == object_size, so each
+        // bag yields exactly one object.  This guarantees no residual objects
+        // linger in the per-thread freelist after Phase 1, forcing Phase 3
+        // allocations to refill from the per-node Treiber stack where the
+        // cross-thread frees landed.
+        let layout = Layout::from_size_align(32768, 8).unwrap();
 
         let barrier = Arc::new(Barrier::new(NUM_THREADS));
         let deposit: Arc<Mutex<Vec<Vec<usize>>>> =
