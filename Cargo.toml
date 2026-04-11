@@ -1,6 +1,6 @@
 [package]
 name = "numalloc"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "A blazing-fast, NUMA-aware memory allocator written in pure Rust"
 license = "MIT"
