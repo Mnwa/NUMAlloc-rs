@@ -12,6 +12,10 @@ readme = "README.md"
 keywords = ["allocator", "numa", "memory", "performance", "lock-free"]
 categories = ["memory-management", "concurrency"]
 
+[features]
+default = ["numa-binding"]
+numa-binding = []
+
 [dependencies]
 libc = "0.2"
 

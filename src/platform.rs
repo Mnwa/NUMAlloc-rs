@@ -7,18 +7,18 @@ pub struct NumaTopology {
 
 /// Detect the NUMA topology of the current system.
 pub fn detect_topology() -> NumaTopology {
-    #[cfg(target_os = "linux")]
+    #[cfg(all(target_os = "linux", feature = "numa-binding"))]
     {
         let num_nodes = detect_numa_nodes_linux().unwrap_or(1);
         NumaTopology { num_nodes }
     }
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(all(target_os = "linux", feature = "numa-binding")))]
     {
         NumaTopology { num_nodes: 1 }
     }
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "numa-binding"))]
 fn detect_numa_nodes_linux() -> std::io::Result<usize> {
     let mut count = 0usize;
     for entry in std::fs::read_dir("/sys/devices/system/node/")? {
@@ -68,7 +68,7 @@ pub unsafe fn munmap(ptr: NonNull<u8>, size: usize) {
 ///
 /// # Safety
 /// `ptr` and `size` must describe a valid, mmap'd region.
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "numa-binding"))]
 pub unsafe fn bind_to_node(ptr: NonNull<u8>, size: usize, node: usize) {
     let nodemask: u64 = 1u64 << node;
     unsafe {
@@ -84,11 +84,11 @@ pub unsafe fn bind_to_node(ptr: NonNull<u8>, size: usize, node: usize) {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_os = "linux", feature = "numa-binding")))]
 pub unsafe fn bind_to_node(_ptr: NonNull<u8>, _size: usize, _node: usize) {}
 
 /// Bind the calling thread to all CPUs belonging to `node`.
-#[cfg(target_os = "linux")]
+#[cfg(all(target_os = "linux", feature = "numa-binding"))]
 pub fn bind_thread_to_node(node: usize) {
     unsafe {
         let mut cpuset: libc::cpu_set_t = std::mem::zeroed();
@@ -111,7 +111,7 @@ pub fn bind_thread_to_node(node: usize) {
     }
 }
 
-#[cfg(not(target_os = "linux"))]
+#[cfg(not(all(target_os = "linux", feature = "numa-binding")))]
 pub fn bind_thread_to_node(_node: usize) {}
 
 /// Return the system page size (cached after first call).
