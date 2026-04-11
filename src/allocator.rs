@@ -188,7 +188,6 @@ unsafe impl GlobalAlloc for NumaAlloc {
         };
 
         let th = unsafe { self.thread_heap().as_mut() };
-        let heap = self.heap();
         let node = th.node_id;
         let fl = th.freelist_mut(class_idx);
 
@@ -200,6 +199,7 @@ unsafe impl GlobalAlloc for NumaAlloc {
         // 2. Refill from per-node freelist.
         //    Pop individually (each is one CAS) but batch-insert into the
         //    thread freelist via push_chain for O(1) insertion.
+        let heap = self.heap();
         let node_fl = heap.node_region(node).node_heap.freelist(class_idx);
         if let Some(first) = node_fl.pop() {
             unsafe { first.as_ref().write_next(None) };
