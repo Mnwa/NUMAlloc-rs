@@ -1,4 +1,3 @@
-use std::alloc::{Layout, System};
 use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
@@ -6,6 +5,7 @@ use crate::freelist::ThreadFreelist;
 use crate::heap::GlobalHeap;
 use crate::platform;
 use crate::size_class::{self, NUM_SIZE_CLASSES};
+use crate::sys_box::SysBox;
 
 // ---------------------------------------------------------------------------
 // Large object cache — per-thread, avoids mmap/munmap on hot paths
@@ -32,7 +32,9 @@ struct LargeCacheEntry {
 
 /// Heap-allocated large object cache.  Kept separate from [`PerThreadHeap`]
 /// so that the hot small-object freelists stay in a compact, cache-friendly
-/// struct (~320 bytes) while the large cache can be up to 16 KiB.
+/// struct while the large cache can be up to 16 KiB.
+///
+/// Owned via [`SysBox`] — the [`Drop`] impl flushes all cached regions.
 struct LargeCache {
     entries: [MaybeUninit<LargeCacheEntry>; LARGE_CACHE_SLOTS],
     count: usize,
@@ -40,21 +42,15 @@ struct LargeCache {
 }
 
 impl LargeCache {
-    fn new_boxed() -> NonNull<Self> {
-        let layout = Layout::new::<Self>();
-        // SAFETY: layout is non-zero size.
-        let ptr = unsafe { std::alloc::GlobalAlloc::alloc(&System, layout) } as *mut Self;
-        let Some(nn) = NonNull::new(ptr) else {
-            std::alloc::handle_alloc_error(layout);
-        };
-        // SAFETY: `entries` uses MaybeUninit so it does not require
-        // initialisation.  Only `count` and `bytes` need valid values;
-        // entries are read only for indices < count.
-        unsafe {
-            std::ptr::write(&raw mut (*nn.as_ptr()).count, 0);
-            std::ptr::write(&raw mut (*nn.as_ptr()).bytes, 0);
-        }
-        nn
+    /// Allocate a new, empty large cache via the system allocator.
+    ///
+    /// Uses `alloc_zeroed` so the 16 KiB `entries` array is never
+    /// constructed on the stack.  All-zeros is valid: `count = 0`,
+    /// `bytes = 0`, and `MaybeUninit` accepts any bit pattern.
+    fn new_boxed() -> SysBox<Self> {
+        // SAFETY: all-zeros is a valid `LargeCache`: count and bytes are 0,
+        // entries are MaybeUninit (any bit pattern is valid).
+        unsafe { SysBox::new_zeroed() }
     }
 
     /// Maximum extra bytes we tolerate when reusing a cached region.
@@ -138,6 +134,12 @@ impl LargeCache {
     }
 }
 
+impl Drop for LargeCache {
+    fn drop(&mut self) {
+        self.flush();
+    }
+}
+
 // ---------------------------------------------------------------------------
 // PerThreadHeap
 // ---------------------------------------------------------------------------
@@ -184,16 +186,20 @@ pub fn max_thread_cache(class_idx: usize) -> usize {
 /// Per-thread heap: one [`ThreadFreelist`] per size class, plus the owning
 /// node id.  Accessed exclusively by a single thread (no synchronisation).
 ///
-/// The large object cache is heap-allocated separately to keep this struct
-/// compact and cache-friendly for the hot small-object path.
+/// The large object cache is heap-allocated separately via [`SysBox`] to keep
+/// this struct compact and cache-friendly for the hot small-object path.
+///
+/// [`Drop`] automatically drains all cached blocks back to the per-node
+/// Treiber stacks, and the owned [`SysBox<LargeCache>`] flushes cached
+/// mmap regions.
 pub struct PerThreadHeap {
     pub node_id: usize,
-    /// Pointer to the owning [`GlobalHeap`], used during thread-exit cleanup
-    /// to drain cached blocks back to per-node freelists.
+    /// Pointer to the owning [`GlobalHeap`], used during drop to drain
+    /// cached blocks back to per-node freelists.
     pub global_heap: NonNull<GlobalHeap>,
     freelists: [ThreadFreelist; NUM_SIZE_CLASSES],
-    /// Heap-allocated large object cache (via System allocator).
-    large_cache: NonNull<LargeCache>,
+    /// Owned large object cache (via System allocator).
+    large_cache: SysBox<LargeCache>,
 }
 
 impl PerThreadHeap {
@@ -215,8 +221,7 @@ impl PerThreadHeap {
     /// Returns `(original_ptr, alloc_size)` on hit.
     #[inline]
     pub fn large_cache_take(&mut self, alloc_size: usize) -> Option<(NonNull<u8>, usize)> {
-        // SAFETY: large_cache was allocated in `new` and is exclusively owned.
-        unsafe { self.large_cache.as_mut().take(alloc_size) }
+        self.large_cache.take(alloc_size)
     }
 
     /// Cache a freed large mapping for later reuse.  Returns `false` if the
@@ -224,16 +229,17 @@ impl PerThreadHeap {
     /// `munmap` instead).
     #[inline]
     pub fn large_cache_put(&mut self, original_ptr: NonNull<u8>, alloc_size: usize) -> bool {
-        // SAFETY: large_cache was allocated in `new` and is exclusively owned.
-        unsafe { self.large_cache.as_mut().put(original_ptr, alloc_size) }
+        self.large_cache.put(original_ptr, alloc_size)
     }
+}
 
-    /// Drain all per-size-class freelists back to the per-node Treiber stacks.
-    ///
-    /// # Safety
-    /// `self.global_heap` must point to a valid, live [`GlobalHeap`].
-    pub unsafe fn drain_to_node_heap(&mut self) {
-        // SAFETY: caller guarantees GlobalHeap is still alive.
+impl Drop for PerThreadHeap {
+    fn drop(&mut self) {
+        // SAFETY: `global_heap` points to a `GlobalHeap` stored in a
+        // `static OnceLock` that outlives all thread-local storage.
+        // For non-main threads, thread-locals are destroyed before statics.
+        // For the main thread, thread-locals are destroyed before statics
+        // as well (C++ / Rust destruction order guarantee).
         let heap = unsafe { self.global_heap.as_ref() };
         let node = self.node_id;
         for class_idx in 0..NUM_SIZE_CLASSES {
@@ -244,11 +250,8 @@ impl PerThreadHeap {
                     .push_chain(head, tail);
             }
         }
-        // Also release cached large mappings and free the cache struct.
-        unsafe {
-            self.large_cache.as_mut().flush();
-            let layout = Layout::new::<LargeCache>();
-            std::alloc::GlobalAlloc::dealloc(&System, self.large_cache.as_ptr() as *mut u8, layout);
-        }
+        // `large_cache: SysBox<LargeCache>` is dropped automatically after
+        // this method returns — `LargeCache::Drop` flushes cached mmap
+        // regions, then `SysBox::Drop` frees the allocation.
     }
 }

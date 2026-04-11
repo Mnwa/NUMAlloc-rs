@@ -1,5 +1,5 @@
 use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::Cell;
+use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -8,50 +8,48 @@ use crate::freelist::FreeBlock;
 use crate::heap::GlobalHeap;
 use crate::platform;
 use crate::size_class::{self, SMALL_LIMIT};
+use crate::sys_box::SysBox;
 use crate::thread_heap::{MADVISE_THRESHOLD, PerThreadHeap, REFILL_BATCH, max_thread_cache};
 
 // ---------------------------------------------------------------------------
 // Per-thread heap guard (cleanup on thread exit)
 // ---------------------------------------------------------------------------
 
-/// Thin wrapper around a [`PerThreadHeap`] pointer that drains cached freelist
-/// blocks back to the per-node Treiber stacks when the owning thread exits.
-/// This prevents progressive region exhaustion caused by short-lived threads
-/// stranding blocks in their thread-local caches.
+/// Thin wrapper around an owned [`SysBox<PerThreadHeap>`] stored in
+/// thread-local storage.
+///
+/// When the owning thread exits the TLS destructor drops this slot, which
+/// drops the [`SysBox`], which runs [`PerThreadHeap::drop`] (draining cached
+/// freelist blocks back to per-node Treiber stacks and flushing the large
+/// object cache), then frees the allocation.  No manual cleanup needed.
 struct ThreadHeapSlot {
-    inner: Cell<Option<NonNull<PerThreadHeap>>>,
+    inner: UnsafeCell<Option<SysBox<PerThreadHeap>>>,
 }
 
 impl ThreadHeapSlot {
     const fn new() -> Self {
         Self {
-            inner: Cell::new(None),
+            inner: UnsafeCell::new(None),
         }
     }
 
+    /// Return a raw pointer to the contained [`PerThreadHeap`], if present.
+    ///
+    /// The pointer remains valid as long as this slot (and hence the owning
+    /// thread's TLS) is alive.
     #[inline]
     fn get(&self) -> Option<NonNull<PerThreadHeap>> {
-        self.inner.get()
+        // SAFETY: thread-local — only the owning thread accesses this cell.
+        let opt = unsafe { &*self.inner.get() };
+        opt.as_ref().map(|b| b.as_non_null())
     }
 
+    /// Store an owned [`SysBox<PerThreadHeap>`] into this slot.
     #[inline]
-    fn set(&self, val: Option<NonNull<PerThreadHeap>>) {
-        self.inner.set(val);
-    }
-}
-
-impl Drop for ThreadHeapSlot {
-    fn drop(&mut self) {
-        if let Some(mut th_ptr) = self.inner.get() {
-            // SAFETY: `th_ptr` was allocated via `System.alloc` in
-            // `NumaAlloc::thread_heap` and points to a valid `PerThreadHeap`.
-            // The `GlobalHeap` is stored in a `static OnceLock` and outlives
-            // all non-main threads; for the main thread, thread-locals are
-            // destroyed before statics.
-            unsafe {
-                th_ptr.as_mut().drain_to_node_heap();
-                System.dealloc(th_ptr.as_ptr() as *mut u8, Layout::new::<PerThreadHeap>());
-            }
+    fn set(&self, val: SysBox<PerThreadHeap>) {
+        // SAFETY: thread-local — only the owning thread accesses this cell.
+        unsafe {
+            *self.inner.get() = Some(val);
         }
     }
 }
@@ -61,9 +59,9 @@ impl Drop for ThreadHeapSlot {
 // ---------------------------------------------------------------------------
 
 thread_local! {
-    /// Pointer to the current thread's [`PerThreadHeap`].
+    /// Owned pointer to the current thread's [`PerThreadHeap`].
     /// Allocated via the **system** allocator to avoid bootstrap recursion.
-    /// The [`ThreadHeapSlot`] wrapper ensures cleanup on thread exit.
+    /// The [`SysBox`] ensures automatic cleanup on thread exit.
     static TH_PTR: ThreadHeapSlot = const { ThreadHeapSlot::new() };
 }
 
@@ -140,8 +138,9 @@ impl NumaAlloc {
 
     /// Obtain (or lazily create) the calling thread's [`PerThreadHeap`].
     ///
-    /// The heap struct is allocated from the **system** allocator so that the
-    /// very first allocation of a new thread doesn't recurse into NUMAlloc.
+    /// The heap struct is allocated from the **system** allocator (via
+    /// [`SysBox`]) so that the very first allocation of a new thread doesn't
+    /// recurse into NUMAlloc.
     fn thread_heap(&self) -> NonNull<PerThreadHeap> {
         // Fast path: try_with avoids panicking when TLS is being destroyed.
         if let Ok(Some(ptr)) = TH_PTR.try_with(ThreadHeapSlot::get) {
@@ -152,21 +151,14 @@ impl NumaAlloc {
         let heap = self.heap();
         let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
 
-        // Allocate PerThreadHeap from the system allocator.
-        let layout = Layout::new::<PerThreadHeap>();
-        let raw = unsafe { System.alloc(layout) } as *mut PerThreadHeap;
-        let Some(nn) = NonNull::new(raw) else {
-            std::alloc::handle_alloc_error(layout);
-        };
-        unsafe {
-            nn.as_ptr()
-                .write(PerThreadHeap::new(node, NonNull::from(heap)));
-        }
+        // Allocate PerThreadHeap via SysBox (system allocator, owned).
+        let boxed = SysBox::new(PerThreadHeap::new(node, NonNull::from(heap)));
+        let nn = boxed.as_non_null();
 
         // Register in TLS BEFORE bind_thread_to_node, which allocates
         // (std::fs::read_to_string).  Without this, the recursive alloc call
         // would see TH_PTR as empty and re-enter this slow path infinitely.
-        let _ = TH_PTR.try_with(|slot| slot.set(Some(nn)));
+        let _ = TH_PTR.try_with(|slot| slot.set(boxed));
 
         // Bind thread to its NUMA node (no-op on non-Linux).
         platform::bind_thread_to_node(node);
@@ -196,7 +188,6 @@ unsafe impl GlobalAlloc for NumaAlloc {
         };
 
         let th = unsafe { self.thread_heap().as_mut() };
-        let heap = self.heap();
         let node = th.node_id;
         let fl = th.freelist_mut(class_idx);
 
@@ -208,6 +199,7 @@ unsafe impl GlobalAlloc for NumaAlloc {
         // 2. Refill from per-node freelist.
         //    Pop individually (each is one CAS) but batch-insert into the
         //    thread freelist via push_chain for O(1) insertion.
+        let heap = self.heap();
         let node_fl = heap.node_region(node).node_heap.freelist(class_idx);
         if let Some(first) = node_fl.pop() {
             unsafe { first.as_ref().write_next(None) };
