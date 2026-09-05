@@ -54,7 +54,7 @@ A single contiguous virtual region is mapped at init (`128 MB * num_nodes`). Eac
 ### Large Object Path (> 256 KB)
 
 - **Alloc**: check per-thread large cache (exact/close-size match) → cache miss: `mmap` with alignment padding + `LargeHeader` prepended.
-- **Dealloc**: read header → try to cache for reuse (with `madvise` for regions ≥ 512 KB) → cache full: `munmap`.
+- **Dealloc**: read header → try to cache for reuse (pages are kept, so `alloc_zeroed` must clear a cache hit) → cache full: `munmap`.
 - **Realloc**: alloc new → copy → dealloc old (no in-place growth).
 
 ## Design Decisions
@@ -67,6 +67,12 @@ Lock-free CAS scales linearly with thread count. No priority inversion, no convo
 
 ### Why per-thread heaps are heap-allocated (system allocator)
 Avoids bootstrap recursion: the NUMA allocator cannot allocate from itself during initialization.
+
+### Why heap initialisation is allocation-free
+`NumaAlloc::heap()` runs inside `OnceLock::get_or_init`. When the instance is the global allocator, any allocation on that path re-enters `alloc` and deadlocks (or, with a "forward to System" guard, hands out System pointers that later reach `dealloc` and are misread as mmap blocks). Topology detection therefore uses `libc::opendir`/`readdir`, never `std::fs`. Keep it that way.
+
+### Why per-thread heaps are per instance
+The thread-local slot holds a linked list of `PerThreadHeap`s, one per `NumaAlloc` instance the thread has used, keyed by the instance's `GlobalHeap` pointer. A block must always return to the heap it was carved from; a shared slot would route instance A's blocks through instance B's region lookup. When TLS is already destroyed (allocations from later thread-local destructors), `alloc_orphan`/`dealloc_orphan` go straight to the per-node Treiber stacks instead of creating a heap nobody will free.
 
 ### Why batch drain/refill
 Drain uses `push_chain` (single CAS for entire chain). Refill pops individually but chain-inserts into the thread freelist in O(1). Keeps hot objects in thread-local cache.
@@ -118,6 +124,15 @@ Distributes memory pressure evenly across NUMA nodes. Avoids hotspotting on node
 4. **Inline aggressively** on hot paths (`#[inline]`).
 5. Avoid heap allocation on alloc/dealloc paths (no `Vec`, `Box`, `String`).
 6. **Use `MaybeUninit`** for arrays and buffers where only a subset of elements are valid (guarded by a count/length field). This avoids wasteful zeroing or initialization of elements that will be overwritten before being read. Example: `LargeCache::entries` uses `MaybeUninit<LargeCacheEntry>` — only entries `[0..count)` are initialised.
+
+## Fuzzing
+
+`fuzz/afl/` is a standalone workspace with AFL++ targets (`cargo install cargo-afl`):
+
+- `alloc_ops` — sequential model of alloc / alloc_zeroed / dealloc / realloc with alignment, overlap, fill-pattern, zeroing and realloc-preservation oracles.
+- `alloc_threads` — the same program split across fresh threads, exercising remote deallocation, thread-exit drains and refills with two virtual NUMA nodes.
+
+The `fuzz-hooks` cargo feature (never for production) lets the harness shrink the region (`NUMALLOC_FUZZ_REGION_MB`) and fake the node count (`NUMALLOC_FUZZ_NODES`) so exhaustion and remote paths are reachable in one iteration. `cargo test` inside `fuzz/afl` replays `corpus/` and `regressions/`; CI runs that plus a 60 s smoke campaign per target. Every confirmed crash gets a minimized input under `regressions/<target>/` **and** a unit test in `src/lib.rs`. See `fuzz/afl/README.md`.
 
 ## Dependencies
 

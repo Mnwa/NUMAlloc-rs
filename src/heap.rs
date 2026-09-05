@@ -69,6 +69,15 @@ impl NodeRegion {
     }
 }
 
+impl NodeRegion {
+    /// Rewind the bump pointer and empty the freelists (fuzzing seam).
+    #[cfg(feature = "fuzz-hooks")]
+    pub fn reset(&self) {
+        self.node_heap.clear();
+        self.bump.store(0, Ordering::SeqCst);
+    }
+}
+
 // Safety: `base` is only accessed through atomic bump pointers and the
 // lock-free per-node freelist.  All concurrent paths use proper synchronisation.
 unsafe impl Send for NodeRegion {}
@@ -93,7 +102,7 @@ impl GlobalHeap {
     /// Allocate and initialise the global heap.
     pub fn new(num_nodes: usize) -> Option<Self> {
         let num_nodes = num_nodes.clamp(1, MAX_NODES);
-        let region_size = DEFAULT_REGION_SIZE;
+        let region_size = crate::fuzz_hooks::region_size_override().unwrap_or(DEFAULT_REGION_SIZE);
         debug_assert!(region_size.is_power_of_two());
         let region_shift = region_size.trailing_zeros();
         let total_size = region_size * num_nodes;
@@ -141,6 +150,15 @@ impl GlobalHeap {
     #[inline]
     pub fn num_nodes(&self) -> usize {
         self.num_nodes
+    }
+
+    /// Return every node region to its freshly-mapped bookkeeping state
+    /// (fuzzing seam, see `NumaAlloc::fuzz_reset`). Page contents are kept.
+    #[cfg(feature = "fuzz-hooks")]
+    pub fn reset(&self) {
+        for node in &self.nodes[..self.num_nodes] {
+            node.reset();
+        }
     }
 }
 

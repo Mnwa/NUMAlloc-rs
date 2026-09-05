@@ -2,3 +2,6 @@
 .idea
 .claude
 examples/*/target
+fuzz/afl/target
+fuzz/afl/artifacts
+fuzz/afl/triage

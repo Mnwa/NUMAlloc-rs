@@ -12,6 +12,13 @@ readme = "README.md"
 keywords = ["allocator", "numa", "memory", "performance", "lock-free"]
 categories = ["memory-management", "concurrency"]
 
+[features]
+# Test seam used by `fuzz/afl`: lets the harness shrink the per-node region
+# and fake the NUMA node count through environment variables so that region
+# exhaustion and remote deallocation are reachable in one fuzz iteration.
+# Never enable this in production builds.
+fuzz-hooks = []
+
 [dependencies]
 libc = "0.2"
 

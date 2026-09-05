@@ -184,19 +184,29 @@ pub fn max_thread_cache(class_idx: usize) -> usize {
 /// compact and cache-friendly for the hot small-object path.
 pub struct PerThreadHeap {
     pub node_id: usize,
-    /// Pointer to the owning [`GlobalHeap`], used during thread-exit cleanup
-    /// to drain cached blocks back to per-node freelists.
+    /// Pointer to the owning [`GlobalHeap`].  Identifies which `NumaAlloc`
+    /// instance this per-thread heap belongs to, and is used during
+    /// thread-exit cleanup to drain cached blocks back to per-node freelists.
     pub global_heap: NonNull<GlobalHeap>,
+    /// Next per-thread heap of the same thread (one per `NumaAlloc` instance
+    /// the thread has allocated through).  Singly linked, owned by the TLS
+    /// slot in `allocator.rs`.
+    pub next: Option<NonNull<PerThreadHeap>>,
     freelists: [ThreadFreelist; NUM_SIZE_CLASSES],
     /// Heap-allocated large object cache (via System allocator).
     large_cache: NonNull<LargeCache>,
 }
 
 impl PerThreadHeap {
-    pub fn new(node_id: usize, global_heap: NonNull<GlobalHeap>) -> Self {
+    pub fn new(
+        node_id: usize,
+        global_heap: NonNull<GlobalHeap>,
+        next: Option<NonNull<PerThreadHeap>>,
+    ) -> Self {
         Self {
             node_id,
             global_heap,
+            next,
             freelists: std::array::from_fn(|_| ThreadFreelist::new()),
             large_cache: LargeCache::new_boxed(),
         }
@@ -222,6 +232,17 @@ impl PerThreadHeap {
     pub fn large_cache_put(&mut self, original_ptr: NonNull<u8>, alloc_size: usize) -> bool {
         // SAFETY: large_cache was allocated in `new` and is exclusively owned.
         unsafe { self.large_cache.as_mut().put(original_ptr, alloc_size) }
+    }
+
+    /// Drop every cached block and unmap every cached large mapping
+    /// (fuzzing seam, see `NumaAlloc::fuzz_reset`).
+    #[cfg(feature = "fuzz-hooks")]
+    pub fn clear_caches(&mut self) {
+        for fl in &mut self.freelists {
+            fl.clear();
+        }
+        // SAFETY: large_cache was allocated in `new` and is exclusively owned.
+        unsafe { self.large_cache.as_mut().flush() };
     }
 
     /// Drain all per-size-class freelists back to the per-node Treiber stacks.

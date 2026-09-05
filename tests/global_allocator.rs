@@ -4,9 +4,10 @@
 //! directly while the test binary uses the system allocator), these tests
 //! exercise the real bootstrap path:
 //!
-//! - Heap initialisation reads `/sys/devices/system/node/` via `std::fs`,
-//!   which allocates through the global allocator.  Without a re-entrancy
-//!   guard this deadlocks on the `OnceLock` inside `NumaAlloc::heap()`.
+//! - Heap initialisation runs inside `OnceLock::get_or_init`.  If anything
+//!   on that path allocated through the global allocator, the re-entrant
+//!   call would deadlock on the `OnceLock`, so topology detection uses raw
+//!   `libc` directory calls instead of `std::fs`.
 //!
 //! - Per-thread heap setup calls `bind_thread_to_node()` which uses
 //!   `std::fs::read_to_string()`.  If the thread heap is not registered in
@@ -19,8 +20,8 @@ static ALLOC: numalloc::NumaAlloc = numalloc::NumaAlloc::new();
 // -- Heap init does not deadlock -------------------------------------------
 
 /// The very first allocation in the process triggers `OnceLock::get_or_init`
-/// → `detect_topology()` → `std::fs::read_dir` → global allocator.
-/// If the re-entrancy guard is missing this test hangs (deadlock).
+/// → `detect_topology()`.  If that path ever allocates through the global
+/// allocator again, this test hangs (deadlock).
 #[test]
 fn heap_init_no_deadlock() {
     // A `Box` goes through the global allocator.
@@ -88,9 +89,8 @@ fn concurrent_thread_heap_init() {
 
 // -- Allocations during init are correct -----------------------------------
 
-/// Memory allocated through the system-allocator fallback (during heap init)
-/// and memory from the NUMA heap (after init) must both be usable and
-/// correctly freed.  This test does a variety of allocation patterns to
+/// Memory from every path (bag, mmap fallback, large mmap) must be usable
+/// and correctly freed.  This test does a variety of allocation patterns to
 /// surface any misrouted dealloc calls.
 #[test]
 fn post_init_alloc_dealloc_correctness() {

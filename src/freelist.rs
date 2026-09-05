@@ -139,6 +139,15 @@ impl TreiberStack {
         }
     }
 
+    /// Forget every block on the stack (fuzzing seam).
+    ///
+    /// Only sound when no other thread touches the stack concurrently and
+    /// the blocks are about to be considered free bag memory again.
+    #[cfg(feature = "fuzz-hooks")]
+    pub fn clear(&self) {
+        self.head.store(0, Ordering::SeqCst);
+    }
+
     /// Returns `true` when the stack appears empty.
     /// (Another thread may push concurrently, so this is advisory.)
     #[cfg(test)]
@@ -217,6 +226,14 @@ impl ThreadFreelist {
     #[inline]
     pub fn count(&self) -> usize {
         self.count
+    }
+
+    /// Forget every block in the list (fuzzing seam).
+    #[cfg(feature = "fuzz-hooks")]
+    pub fn clear(&mut self) {
+        self.head = None;
+        self.tail = None;
+        self.count = 0;
     }
 
     #[cfg(test)]

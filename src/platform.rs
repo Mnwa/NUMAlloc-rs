@@ -7,6 +7,9 @@ pub struct NumaTopology {
 
 /// Detect the NUMA topology of the current system.
 pub fn detect_topology() -> NumaTopology {
+    if let Some(num_nodes) = crate::fuzz_hooks::num_nodes_override() {
+        return NumaTopology { num_nodes };
+    }
     #[cfg(target_os = "linux")]
     {
         let num_nodes = detect_numa_nodes_linux().unwrap_or(1);
@@ -18,16 +21,40 @@ pub fn detect_topology() -> NumaTopology {
     }
 }
 
+/// Count `/sys/devices/system/node/node*` entries.
+///
+/// Uses `opendir`/`readdir` directly instead of `std::fs::read_dir` so that
+/// **no allocation goes through the Rust global allocator**: this runs inside
+/// `NumaAlloc::heap()` initialisation, and when the allocator is the global
+/// allocator a re-entrant allocation would deadlock on the `OnceLock` (or
+/// hand out system-allocator pointers that later reach `dealloc`).
 #[cfg(target_os = "linux")]
-fn detect_numa_nodes_linux() -> std::io::Result<usize> {
-    let mut count = 0usize;
-    for entry in std::fs::read_dir("/sys/devices/system/node/")? {
-        let name = entry?.file_name();
-        if name.to_string_lossy().starts_with("node") {
-            count += 1;
+fn detect_numa_nodes_linux() -> Option<usize> {
+    // SAFETY: valid NUL-terminated path; `dir` is checked for null before use
+    // and closed exactly once.
+    unsafe {
+        let dir = libc::opendir(c"/sys/devices/system/node/".as_ptr());
+        if dir.is_null() {
+            return None;
         }
+        let mut count = 0usize;
+        loop {
+            let entry = libc::readdir(dir);
+            if entry.is_null() {
+                break;
+            }
+            let name = core::ffi::CStr::from_ptr((*entry).d_name.as_ptr()).to_bytes();
+            // "node" followed by at least one digit.
+            if let Some(rest) = name.strip_prefix(b"node")
+                && !rest.is_empty()
+                && rest.iter().all(u8::is_ascii_digit)
+            {
+                count += 1;
+            }
+        }
+        libc::closedir(dir);
+        Some(count.max(1))
     }
-    Ok(count.max(1))
 }
 
 /// Allocate anonymous memory via `mmap`.

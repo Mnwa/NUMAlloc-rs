@@ -18,4 +18,12 @@ impl PerNodeHeap {
     pub fn freelist(&self, class_index: usize) -> &TreiberStack {
         &self.freelists[class_index]
     }
+
+    /// Empty every per-class stack (fuzzing seam, see `NumaAlloc::fuzz_reset`).
+    #[cfg(feature = "fuzz-hooks")]
+    pub fn clear(&self) {
+        for fl in &self.freelists {
+            fl.clear();
+        }
+    }
 }

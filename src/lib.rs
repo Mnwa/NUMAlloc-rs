@@ -1,5 +1,6 @@
 mod allocator;
 mod freelist;
+mod fuzz_hooks;
 mod heap;
 mod node_heap;
 mod platform;
@@ -1361,5 +1362,197 @@ mod tests {
         for h in handles {
             h.join().unwrap();
         }
+    }
+    // -- Regression tests for bugs found by fuzzing / review -----------------
+
+    /// `alloc_zeroed` for > 256 KB objects must return zeroed memory even
+    /// when the mapping is reused from the per-thread large-object cache
+    /// (which keeps the previous owner's data).  Covers exact-size and
+    /// close-size (≤ 8 KiB slack) cache hits.
+    #[test]
+    fn alloc_zeroed_large_after_cache_reuse() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        unsafe {
+            for (dirty, zeroed) in [(300_000usize, 300_000usize), (262_400, 266_000)] {
+                let dirty_layout = Layout::from_size_align(dirty, 8).unwrap();
+                let p = ALLOC.alloc(dirty_layout);
+                assert!(!p.is_null());
+                std::ptr::write_bytes(p, 0xA5, dirty);
+                ALLOC.dealloc(p, dirty_layout); // goes to the large cache
+
+                let z_layout = Layout::from_size_align(zeroed, 8).unwrap();
+                let z = ALLOC.alloc_zeroed(z_layout);
+                assert!(!z.is_null());
+                let bytes = std::slice::from_raw_parts(z, zeroed);
+                assert!(
+                    bytes.iter().all(|&b| b == 0),
+                    "alloc_zeroed({zeroed}) after freeing {dirty} returned dirty memory"
+                );
+                ALLOC.dealloc(z, z_layout);
+            }
+        }
+    }
+
+    /// When the node region is exhausted, small requests fall back to a
+    /// private mmap that is exactly `layout.size()` bytes (plus header and
+    /// page rounding).  `realloc` must not treat such a block as a full
+    /// size-class object and hand it back unchanged for a larger request.
+    ///
+    /// Without the fix, the block below is page-tight (16 B header + 4073 B
+    /// = 4096 B mapping); growing it in-class to 4096 B and writing the
+    /// whole block overruns the mapping into the neighbouring one.
+    #[test]
+    fn realloc_same_class_on_mmap_fallback() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        unsafe {
+            // Exhaust the (single-node) 128 MiB region with 256 KiB bags.
+            // Only the first byte of each is touched, so RSS stays small.
+            let big = Layout::from_size_align(256 * 1024, 8).unwrap();
+            let mut bags = Vec::new();
+            for _ in 0..(crate::heap::DEFAULT_REGION_SIZE / (256 * 1024)) {
+                let p = ALLOC.alloc(big);
+                assert!(!p.is_null());
+                *p = 1;
+                bags.push(p);
+            }
+
+            // Page-tight fallback blocks: 4096 - 16 (header) - 7 (align slack).
+            let tight = Layout::from_size_align(4073, 8).unwrap();
+            let mut blocks: Vec<*mut u8> = (0..8)
+                .map(|_| {
+                    let p = ALLOC.alloc(tight);
+                    assert!(!p.is_null());
+                    std::ptr::write_bytes(p, 0x11, 4073);
+                    p
+                })
+                .collect();
+
+            // Grow each in-class to the full 4096 bytes and use all of it.
+            let full = Layout::from_size_align(4096, 8).unwrap();
+            for p in blocks.iter_mut() {
+                let q = ALLOC.realloc(*p, tight, 4096);
+                assert!(!q.is_null());
+                assert!(
+                    std::slice::from_raw_parts(q, 4073)
+                        .iter()
+                        .all(|&b| b == 0x11)
+                );
+                std::ptr::write_bytes(q, 0x22, 4096);
+                *p = q;
+            }
+            for p in blocks {
+                assert!(
+                    std::slice::from_raw_parts(p, 4096)
+                        .iter()
+                        .all(|&b| b == 0x22)
+                );
+                ALLOC.dealloc(p, full);
+            }
+            for p in bags {
+                ALLOC.dealloc(p, big);
+            }
+        }
+    }
+
+    /// Allocations made while the thread's TLS is being destroyed (e.g. from
+    /// another thread-local's destructor that runs after ours) must still be
+    /// served — and freed — without creating a fresh, leaked per-thread heap.
+    #[test]
+    fn alloc_during_tls_destruction() {
+        static ALLOC: NumaAlloc = NumaAlloc::new();
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        static RAN: AtomicUsize = AtomicUsize::new(0);
+
+        struct LateUser;
+        impl Drop for LateUser {
+            fn drop(&mut self) {
+                unsafe {
+                    for size in [8usize, 64, 4096, 40_000, 300_000] {
+                        let layout = Layout::from_size_align(size, 8).unwrap();
+                        let p = ALLOC.alloc(layout);
+                        assert!(!p.is_null());
+                        std::ptr::write_bytes(p, 0x5A, size);
+                        let q = ALLOC.realloc(p, layout, size * 2);
+                        assert!(!q.is_null());
+                        ALLOC.dealloc(q, Layout::from_size_align(size * 2, 8).unwrap());
+                    }
+                }
+                RAN.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+        thread_local! { static LATE: LateUser = const { LateUser }; }
+
+        std::thread::spawn(|| unsafe {
+            // Register LATE first so its destructor runs *after* the
+            // allocator's TLS slot has been torn down (LIFO order).
+            LATE.with(|_| {});
+            let layout = Layout::from_size_align(64, 8).unwrap();
+            let p = ALLOC.alloc(layout);
+            assert!(!p.is_null());
+            ALLOC.dealloc(p, layout);
+        })
+        .join()
+        .unwrap();
+        assert_eq!(RAN.load(Ordering::SeqCst), 1);
+        assert!(
+            crate::allocator::ORPHAN_ALLOCS.load(Ordering::SeqCst) > 0,
+            "destructor allocations did not take the heap-less path"
+        );
+    }
+
+    /// Two allocator instances used from the same threads must keep separate
+    /// per-thread heaps: a block from instance A freed on a thread that first
+    /// touched instance B must go back to A's heap, not be mistaken for a
+    /// foreign mmap block.
+    #[test]
+    fn two_instances_cross_thread() {
+        static A: NumaAlloc = NumaAlloc::new();
+        static B: NumaAlloc = NumaAlloc::new();
+        use std::sync::mpsc;
+
+        let layout = Layout::from_size_align(128, 8).unwrap();
+        let (tx, rx) = mpsc::channel::<Vec<usize>>();
+
+        // Producer: touches B first, then allocates from A.
+        std::thread::spawn(move || unsafe {
+            let b = B.alloc(layout);
+            assert!(!b.is_null());
+            B.dealloc(b, layout);
+            let ptrs: Vec<usize> = (0..300)
+                .map(|_| {
+                    let p = A.alloc(layout);
+                    assert!(!p.is_null());
+                    std::ptr::write_bytes(p, 0x77, 128);
+                    p as usize
+                })
+                .collect();
+            tx.send(ptrs).unwrap();
+        })
+        .join()
+        .unwrap();
+
+        // Consumer: touches B first, then frees A's blocks and reuses them.
+        let ptrs = rx.recv().unwrap();
+        std::thread::spawn(move || unsafe {
+            let b = B.alloc(layout);
+            assert!(!b.is_null());
+            B.dealloc(b, layout);
+            for &p in &ptrs {
+                assert!(
+                    std::slice::from_raw_parts(p as *const u8, 128)
+                        .iter()
+                        .all(|&x| x == 0x77)
+                );
+                A.dealloc(p as *mut u8, layout);
+            }
+            // Blocks must be reusable from A, and B must stay independent.
+            let again: Vec<*mut u8> = (0..300).map(|_| A.alloc(layout)).collect();
+            assert!(again.iter().all(|p| !p.is_null()));
+            for p in again {
+                A.dealloc(p, layout);
+            }
+        })
+        .join()
+        .unwrap();
     }
 }
