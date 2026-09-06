@@ -6,7 +6,9 @@
 # Extra args are passed to `cargo test`.
 set -euo pipefail
 cd "$(dirname "$0")/.."
-TARGET=x86_64-unknown-linux-gnu
+# Match the host by default so local validation also works on Apple Silicon.
+# Cross-target runners can still select an explicit sanitizer target.
+TARGET="${SANITIZER_TARGET:-$(rustc -vV | sed -n 's/^host: //p')}"
 which="${1:-all}"; shift || true
 
 run_asan() {

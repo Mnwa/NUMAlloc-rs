@@ -18,8 +18,11 @@ status=0
 mkdir -p "$OUT"  # afl-fuzz creates only the leaf output directory
 for target in alloc_ops alloc_threads; do
   rm -rf "$OUT/$target"
-  cargo afl fuzz -i "corpus/$target" -o "$OUT/$target" -S ci -V "$SMOKE_SECONDS" \
-    -x dictionaries/alloc_ops.dict -- "target/release/$target" >/dev/null || true
+  if ! cargo afl fuzz -i "corpus/$target" -o "$OUT/$target" -S ci -V "$SMOKE_SECONDS" \
+    -x dictionaries/alloc_ops.dict -- "target/release/$target" >/dev/null; then
+    echo "$target: AFL failed to complete the smoke run" >&2
+    status=1
+  fi
   crashes=$(find "$OUT/$target" -path '*/crashes/id:*' | wc -l)
   hangs=$(find "$OUT/$target" -path '*/hangs/id:*' | wc -l)
   echo "$target: crashes=$crashes hangs=$hangs"

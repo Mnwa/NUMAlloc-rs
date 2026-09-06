@@ -141,7 +141,9 @@ runs a single suite.
 ## Sanitizers
 
 `scripts/sanitizers.sh` builds into `target/asan` / `target/tsan` so normal
-builds are untouched.  ASan cannot see inside the allocator's own `mmap`
+builds are untouched. It selects the host target by default; set
+`SANITIZER_TARGET` to override it for a configured cross-target runner.
+ASan cannot see inside the allocator's own `mmap`
 regions (it only poisons its own malloc), so it primarily guards the
 system-allocated metadata (`PerThreadHeap`, `LargeCache`, `SharedHeap`) and
 the test harness.  TSan rebuilds `std` with `-Zbuild-std` so channel/thread

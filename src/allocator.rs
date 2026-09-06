@@ -141,6 +141,7 @@ impl NumaAlloc {
         }
     }
 
+    #[inline]
     fn heap(&self) -> &HeapHandle {
         self.heap.get_or_init(|| {
             #[cfg(feature = "internal-testing")]
@@ -206,6 +207,7 @@ impl NumaAlloc {
 
     /// A destroyed TLS slot cannot be recreated. Its callers use uncached
     /// mmap allocations or return freed blocks directly to their origin node.
+    #[inline]
     fn thread_heap(&self) -> Option<NonNull<PerThreadHeap>> {
         TH_PTR
             .try_with(|slot| {
@@ -215,23 +217,28 @@ impl NumaAlloc {
                     if std::ptr::eq::<GlobalHeap>(&*unsafe { ptr.as_ref() }.global_heap, &**heap) {
                         return ptr;
                     }
-                    // Switching allocators relinquishes this thread's cache;
-                    // dropping the SysBox drains it to its original heap.
-                    slot.set(None);
                 }
-                // Advisory round-robin assignment has no publication dependency.
-                let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
-                // Allocated via SysBox (system allocator) so that the very
-                // first allocation of a new thread doesn't recurse into NUMAlloc.
-                let boxed = SysBox::new(PerThreadHeap::new(node, heap.clone()));
-                let ptr = boxed.as_non_null();
-                // Register in TLS BEFORE bind_thread_to_node so any allocation
-                // it triggers sees the cache instead of re-entering this path.
-                slot.set(Some(boxed));
-                platform::bind_thread_to_node(node);
-                ptr
+                self.init_thread_heap(slot, heap)
             })
             .ok()
+    }
+
+    /// Keep cache construction and teardown out of the warm lookup's frame.
+    #[cold]
+    #[inline(never)]
+    fn init_thread_heap(&self, slot: &ThreadHeapSlot, heap: &HeapHandle) -> NonNull<PerThreadHeap> {
+        // Switching allocators relinquishes this thread's cache; dropping the
+        // SysBox drains it to its original heap before creating the new cache.
+        slot.set(None);
+        // Advisory round-robin assignment has no publication dependency.
+        let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
+        // System allocation avoids bootstrap recursion into NUMAlloc.
+        let boxed = SysBox::new(PerThreadHeap::new(node, heap.clone()));
+        let ptr = boxed.as_non_null();
+        // Register before affinity setup so any allocation it triggers sees it.
+        slot.set(Some(boxed));
+        platform::bind_thread_to_node(node);
+        ptr
     }
 }
 
