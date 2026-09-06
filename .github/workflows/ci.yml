@@ -90,16 +90,24 @@ jobs:
   fuzz-smoke:
     name: AFL smoke (60s per target)
     runs-on: ubuntu-latest
+    env:
+      CARGO_AFL_VERSION: 0.18.2
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        id: toolchain
       - uses: actions/cache@v4
+        id: cargo-afl-cache
         with:
+          # Rebuilding cargo-afl needs the bundled AFL++ sources at the
+          # Cargo registry path embedded in the installed binary.
           path: |
             ~/.cargo/bin/cargo-afl
+            ~/.cargo/registry
             ~/.local/share/afl.rs
-          key: ${{ runner.os }}-cargo-afl-0.18
-      - run: command -v cargo-afl || cargo install cargo-afl --locked
+          key: ${{ runner.os }}-${{ runner.arch }}-cargo-afl-${{ env.CARGO_AFL_VERSION }}-${{ steps.toolchain.outputs.cachekey }}-v2
+      - if: steps.cargo-afl-cache.outputs.cache-hit != 'true'
+        run: cargo install cargo-afl --version "$CARGO_AFL_VERSION" --locked
       - run: cargo afl config --build --force
       - run: SMOKE_SECONDS=60 scripts/fuzz-smoke.sh
       - uses: actions/upload-artifact@v4
