@@ -1,6 +1,6 @@
 [package]
 name = "numalloc"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "A blazing-fast, NUMA-aware memory allocator written in pure Rust"
 license = "MIT"
@@ -33,7 +33,7 @@ libc = "0.2"
 numalloc = { path = ".", features = ["internal-testing"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 mimalloc = { version = "0.1", default-features = false }
-tikv-jemallocator = "0.6"
+tikv-jemallocator = "0.7"
 
 [[bench]]
 name = "allocator_comparison"
