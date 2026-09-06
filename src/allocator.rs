@@ -1,5 +1,5 @@
-use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::Cell;
+use std::alloc::{GlobalAlloc, Layout};
+use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::OnceLock;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -8,47 +8,50 @@ use crate::freelist::FreeBlock;
 use crate::heap::{GlobalHeap, HeapHandle};
 use crate::platform;
 use crate::size_class::{self, SMALL_LIMIT};
+use crate::sys_box::SysBox;
 use crate::thread_heap::{MADVISE_THRESHOLD, PerThreadHeap, REFILL_BATCH, max_thread_cache};
 
 // ---------------------------------------------------------------------------
 // Per-thread heap guard (cleanup on thread exit)
 // ---------------------------------------------------------------------------
 
-/// Thin wrapper around a [`PerThreadHeap`] pointer that drains cached freelist
-/// blocks back to the per-node Treiber stacks when the owning thread exits.
-/// This prevents progressive region exhaustion caused by short-lived threads
-/// stranding blocks in their thread-local caches.
+/// Thin wrapper around an owned [`SysBox<PerThreadHeap>`] stored in
+/// thread-local storage.
+///
+/// When the owning thread exits the TLS destructor drops this slot, which
+/// drops the [`SysBox`], which runs [`PerThreadHeap::drop`] (draining cached
+/// freelist blocks back to per-node Treiber stacks and flushing the large
+/// object cache), then frees the allocation.  No manual cleanup needed.
 struct ThreadHeapSlot {
-    inner: Cell<Option<NonNull<PerThreadHeap>>>,
+    inner: UnsafeCell<Option<SysBox<PerThreadHeap>>>,
 }
 
 impl ThreadHeapSlot {
     const fn new() -> Self {
         Self {
-            inner: Cell::new(None),
+            inner: UnsafeCell::new(None),
         }
     }
 
+    /// Return a raw pointer to the contained [`PerThreadHeap`], if present.
+    ///
+    /// The pointer remains valid as long as this slot (and hence the owning
+    /// thread's TLS) is alive.
     #[inline]
     fn get(&self) -> Option<NonNull<PerThreadHeap>> {
-        self.inner.get()
+        // SAFETY: thread-local — only the owning thread accesses this cell.
+        let opt = unsafe { &*self.inner.get() };
+        opt.as_ref().map(|b| b.as_non_null())
     }
 
+    /// Store an owned [`SysBox<PerThreadHeap>`] into this slot.
     #[inline]
-    fn set(&self, val: Option<NonNull<PerThreadHeap>>) {
-        self.inner.set(val);
-    }
-}
-
-impl Drop for ThreadHeapSlot {
-    fn drop(&mut self) {
-        if let Some(th_ptr) = self.inner.take() {
-            // SAFETY: the slot exclusively owns this System allocation. The
-            // heap handle remains live throughout PerThreadHeap's destructor.
-            unsafe {
-                th_ptr.drop_in_place();
-                System.dealloc(th_ptr.cast().as_ptr(), Layout::new::<PerThreadHeap>());
-            }
+    fn set(&self, val: Option<SysBox<PerThreadHeap>>) {
+        // SAFETY: thread-local — only the owning thread accesses this cell.
+        // Assigning drops any previous `SysBox`, whose `PerThreadHeap::drop`
+        // drains its caches back to the heap it was created for.
+        unsafe {
+            *self.inner.get() = val;
         }
     }
 }
@@ -58,9 +61,9 @@ impl Drop for ThreadHeapSlot {
 // ---------------------------------------------------------------------------
 
 thread_local! {
-    /// Pointer to the current thread's [`PerThreadHeap`].
+    /// Owned pointer to the current thread's [`PerThreadHeap`].
     /// Allocated via the **system** allocator to avoid bootstrap recursion.
-    /// The [`ThreadHeapSlot`] wrapper ensures cleanup on thread exit.
+    /// The [`SysBox`] ensures automatic cleanup on thread exit.
     static TH_PTR: ThreadHeapSlot = const { ThreadHeapSlot::new() };
 }
 
@@ -212,25 +215,19 @@ impl NumaAlloc {
                     if std::ptr::eq::<GlobalHeap>(&*unsafe { ptr.as_ref() }.global_heap, &**heap) {
                         return ptr;
                     }
+                    // Switching allocators relinquishes this thread's cache;
+                    // dropping the SysBox drains it to its original heap.
                     slot.set(None);
-                    // SAFETY: switching allocators relinquishes this thread's
-                    // exclusive cache, whose handle retains its original heap.
-                    unsafe {
-                        ptr.drop_in_place();
-                        System.dealloc(ptr.cast().as_ptr(), Layout::new::<PerThreadHeap>());
-                    }
                 }
                 // Advisory round-robin assignment has no publication dependency.
                 let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
-                let layout = Layout::new::<PerThreadHeap>();
-                // SAFETY: nonzero layout; System cannot recurse into NUMAlloc.
-                let Some(ptr) = NonNull::new(unsafe { System.alloc(layout) }) else {
-                    std::alloc::handle_alloc_error(layout);
-                };
-                let ptr = ptr.cast::<PerThreadHeap>();
-                // SAFETY: ptr exclusively owns suitably aligned storage.
-                unsafe { ptr.write(PerThreadHeap::new(node, heap.clone())) };
-                slot.set(Some(ptr));
+                // Allocated via SysBox (system allocator) so that the very
+                // first allocation of a new thread doesn't recurse into NUMAlloc.
+                let boxed = SysBox::new(PerThreadHeap::new(node, heap.clone()));
+                let ptr = boxed.as_non_null();
+                // Register in TLS BEFORE bind_thread_to_node so any allocation
+                // it triggers sees the cache instead of re-entering this path.
+                slot.set(Some(boxed));
                 platform::bind_thread_to_node(node);
                 ptr
             })
@@ -258,7 +255,6 @@ unsafe impl GlobalAlloc for NumaAlloc {
         };
         // SAFETY: this thread exclusively owns its cache; bootstrap does not recurse.
         let th = unsafe { th.as_mut() };
-        let heap = self.heap();
         let node = th.node_id;
         let fl = th.freelist_mut(class_idx);
 
@@ -274,6 +270,7 @@ unsafe impl GlobalAlloc for NumaAlloc {
         //    may already have handed to user code).  Only REFILL_BATCH
         //    blocks are walked; the remainder is parked as spare, so refill
         //    cost is bounded whatever the node stack length.
+        let heap = self.heap();
         let chain = fl.take_spare().or_else(|| {
             heap.node_region(node)
                 .node_heap

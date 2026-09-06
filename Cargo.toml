@@ -1,6 +1,6 @@
 [package]
 name = "numalloc"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2024"
 description = "A blazing-fast, NUMA-aware memory allocator written in pure Rust"
 license = "MIT"
@@ -13,6 +13,11 @@ keywords = ["allocator", "numa", "memory", "performance", "lock-free"]
 categories = ["memory-management", "concurrency"]
 
 [features]
+default = ["numa-binding"]
+# Bind each node's region to its physical NUMA node (`mbind`) and pin threads
+# to that node's CPUs on Linux.  Disable to run as a plain per-node allocator
+# with a single virtual node and no sysfs / affinity syscalls.
+numa-binding = []
 # Exposes `NumaAlloc::with_config`, `NumaAlloc::validate_internal_state` and a
 # few metadata accessors for tests and fuzz harnesses.  Never enable this in
 # production builds: it adds fields to `NumaAlloc` and public unsafe entry

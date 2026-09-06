@@ -10,9 +10,12 @@ export AFL_SKIP_CPUFREQ=1 AFL_NO_AFFINITY=1 AFL_FAST_CAL=1
 # (on hosts whose core_pattern is a pipe, cores would otherwise be misfiled as hangs).
 export AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
 ulimit -c 0
-cargo afl build --release --bin alloc_ops --bin alloc_threads
+# Replay first: `cargo test` rebuilds the bins *without* instrumentation and
+# would overwrite the afl build if it ran second.
 cargo test --release
+cargo afl build --release --bin alloc_ops --bin alloc_threads
 status=0
+mkdir -p "$OUT"  # afl-fuzz creates only the leaf output directory
 for target in alloc_ops alloc_threads; do
   rm -rf "$OUT/$target"
   cargo afl fuzz -i "corpus/$target" -o "$OUT/$target" -S ci -V "$SMOKE_SECONDS" \

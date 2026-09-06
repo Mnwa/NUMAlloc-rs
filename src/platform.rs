@@ -7,25 +7,25 @@ pub struct NumaTopology {
 
 /// Detect the NUMA topology of the current system.
 pub fn detect_topology() -> NumaTopology {
-    #[cfg(all(target_os = "linux", not(miri)))]
+    #[cfg(all(target_os = "linux", feature = "numa-binding", not(miri)))]
     {
         let num_nodes = detect_numa_nodes_linux();
         NumaTopology { num_nodes }
     }
-    #[cfg(not(all(target_os = "linux", not(miri))))]
+    #[cfg(not(all(target_os = "linux", feature = "numa-binding", not(miri))))]
     {
         NumaTopology { num_nodes: 1 }
     }
 }
 
 /// Length of the NUL-terminated sysfs cpulist path for one node.
-#[cfg(all(target_os = "linux", any(test, not(miri))))]
+#[cfg(all(target_os = "linux", feature = "numa-binding", any(test, not(miri))))]
 const CPULIST_PATH_LEN: usize = b"/sys/devices/system/node/node0/cpulist\0".len();
 
 /// Build `/sys/devices/system/node/node<N>/cpulist` without allocating.
 ///
 /// `node` must be a single decimal digit (`MAX_NODES` is 8).
-#[cfg(all(target_os = "linux", any(test, not(miri))))]
+#[cfg(all(target_os = "linux", feature = "numa-binding", any(test, not(miri))))]
 fn node_cpulist_path(node: usize) -> [u8; CPULIST_PATH_LEN] {
     debug_assert!(node < 10);
     let mut path = *b"/sys/devices/system/node/node0/cpulist\0";
@@ -37,7 +37,7 @@ fn node_cpulist_path(node: usize) -> [u8; CPULIST_PATH_LEN] {
 }
 
 // Sysfs discovery must not call the global allocator during OnceLock init.
-#[cfg(all(target_os = "linux", not(miri)))]
+#[cfg(all(target_os = "linux", feature = "numa-binding", not(miri)))]
 fn read_sysfs(path: &std::ffi::CStr, output: &mut [u8]) -> Option<usize> {
     // SAFETY: path is NUL terminated and output is writable for its length.
     unsafe {
@@ -51,7 +51,7 @@ fn read_sysfs(path: &std::ffi::CStr, output: &mut [u8]) -> Option<usize> {
     }
 }
 
-#[cfg(all(target_os = "linux", not(miri)))]
+#[cfg(all(target_os = "linux", feature = "numa-binding", not(miri)))]
 fn detect_numa_nodes_linux() -> usize {
     // Probe actual node directories without allocating. node_ids in topology
     // are physical IDs, so sparse online node numbers are preserved.
@@ -137,7 +137,7 @@ pub unsafe fn munmap(ptr: NonNull<u8>, size: usize) {
 ///
 /// # Safety
 /// `ptr` and `size` must describe a valid, mmap'd region.
-#[cfg(all(target_os = "linux", not(miri)))]
+#[cfg(all(target_os = "linux", feature = "numa-binding", not(miri)))]
 pub unsafe fn bind_to_node(ptr: NonNull<u8>, size: usize, node: usize) {
     debug_assert!(node < 64);
     let nodemask: u64 = 1u64 << (node % 64);
@@ -154,11 +154,11 @@ pub unsafe fn bind_to_node(ptr: NonNull<u8>, size: usize, node: usize) {
     }
 }
 
-#[cfg(not(all(target_os = "linux", not(miri))))]
+#[cfg(not(all(target_os = "linux", feature = "numa-binding", not(miri))))]
 pub unsafe fn bind_to_node(_ptr: NonNull<u8>, _size: usize, _node: usize) {}
 
 /// Bind the calling thread to all CPUs belonging to `node`.
-#[cfg(all(target_os = "linux", not(miri)))]
+#[cfg(all(target_os = "linux", feature = "numa-binding", not(miri)))]
 pub fn bind_thread_to_node(node: usize) {
     if node >= crate::heap::MAX_NODES {
         return;
@@ -201,7 +201,7 @@ pub fn bind_thread_to_node(node: usize) {
     unsafe { libc::sched_setaffinity(0, std::mem::size_of_val(&cpuset), &cpuset) };
 }
 
-#[cfg(not(all(target_os = "linux", not(miri))))]
+#[cfg(not(all(target_os = "linux", feature = "numa-binding", not(miri))))]
 pub fn bind_thread_to_node(_node: usize) {}
 
 /// Return the system page size (cached after first call).
@@ -252,6 +252,7 @@ mod tests {
     use super::*;
 
     #[test]
+    #[cfg(feature = "numa-binding")]
     fn cpulist_path_places_digit_after_node_prefix() {
         for node in 0..crate::heap::MAX_NODES {
             let path = node_cpulist_path(node);

@@ -101,7 +101,7 @@ Distributes memory pressure evenly across NUMA nodes. Avoids hotspotting on node
 ### Mandatory after any allocator change
 Any change under `src/` (or to the test model in `tests/common/`) is not done until all of these pass locally:
 1. `scripts/test.sh` — fmt, clippy, `cargo test`, fuzz corpus replay.
-2. `scripts/miri.sh` — the portable logic under Miri (provenance, aliasing, leaks). Scale new loops with `cfg!(miri)` (see `n()`/`t()` in `src/lib.rs`) rather than skipping tests.
+2. `scripts/miri.sh` — the portable logic under Miri (provenance, aliasing, leaks). Scale new loops with `cfg!(miri)` (see `n()`/`t()` in `tests/local_allocator.rs`) rather than skipping tests.
 3. `scripts/fuzz-smoke.sh` — rebuild both AFL targets and fuzz each for at least 60 s (longer, `scripts/fuzz-campaign.sh <target> 8 900`, for changes to freelists, refill/drain, the large-object path or `platform.rs`). Zero crashes and zero hangs required; any finding goes through the triage workflow in `docs/testing.md` (minimise, root-cause, fix, regression input in `fuzz/afl/regressions/` plus a test in `tests/`).
 4. For changes touching hot paths, `scripts/sanitizers.sh` and a `cargo bench` comparison against the previous commit (see the numbers in `README.md`, "Correctness and validation").
 
