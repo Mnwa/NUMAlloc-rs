@@ -1,0 +1,197 @@
+[1;92m[+] [0mEnabled environment variable AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_NO_AFFINITY with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_NO_UI with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_SKIP_CPUFREQ with value 1[0m
+[1;94m[*] [0mSpinning up the fork server...[0m
+[1;92m[+] [0mAll right - new fork server model v1 is up.[0m
+[1;94m[*] [0mTarget map size: 2367[0m
+[1;94m[*] [0mUsing SHARED MEMORY FUZZING feature.[0m
+[0;36mafl-fuzz++4.40c[0m based on afl by Michal Zalewski and a large online community
+[1;94m[*] [0mDisabling cmplog again because of '-c -'.[0m
+[1;92m[+] [0mAFL++ is maintained by Marc "van Hauser" Heuse, Dominik Maier, Andrea Fioraldi and Heiko "hexcoder" Eißfeldt[0m
+[1;92m[+] [0mAFL++ is open source, get it at https://github.com/AFLplusplus/AFLplusplus[0m
+[1;92m[+] [0mNOTE: AFL++ >= v3 has changed defaults and behaviours - see README.md[0m
+[1;94m[*] [0mGetting to work...[0m
+[1;92m[+] [0mUsing exploration-based constant power schedule (EXPLORE)[0m
+[1;92m[+] [0mEnabled testcache with 50 MB[0m
+[1;92m[+] [0mGenerating fuzz data with a length of min=1 max=1048576[0m
+[1;92m[+] [0mFrameShift status: enabled (10% overhead configured)[0m
+[1;94m[*] [0mChecking core_pattern...[0m
+
+[1;91m[-] [0mYour system is configured to send core dump notifications to an
+    external utility. This will cause issues: there will be an extended delay
+    between stumbling upon a crash and having this information relayed to the
+    fuzzer via the standard waitpid() API.
+    If you're just experimenting, set 'AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1'.
+
+    To avoid having crashes misinterpreted as timeouts, please 
+    temporarily modify /proc/sys/kernel/core_pattern, like so:
+
+    echo core | sudo tee /proc/sys/kernel/core_pattern
+[1;92m[+] [0mDisabling the UI because AFL_NO_UI is set.[0m
+[1;92m[+] [0mYou have 24 CPU cores and 21 runnable tasks (utilization: 88%).[0m
+[1;92m[+] [0mTry parallel jobs - see docs/fuzzing_in_depth.md#c-using-multiple-cores[0m
+[1;94m[*] [0mSetting up output directories...[0m
+[1;92m[+] [0mOutput directory exists but deemed OK to reuse.[0m
+[1;94m[*] [0mDeleting old session data...[0m
+[1;92m[+] [0mOutput dir cleanup successful.[0m
+[1;93m[!] [1;97mWARNING: [0mNot binding to a CPU core (AFL_NO_AFFINITY set).[0m
+[1;93m[!] [1;97mWARNING: [0mno -M main node found. It is recommended to run exactly one main instance.[0m
+[1;94m[*] [0mValidating target binary...[0m
+[1;92m[+] [0m[1;95mPersistent mode binary detected.[0m
+[1;92m[+] [0m[1;95mDeferred forkserver binary detected.[0m
+[1;94m[*] [0mScanning 'corpus/alloc_threads'...[0m
+[1;94m[*] [0mCreating hard links for all input files...[0m
+[1;92m[+] [0mLoaded a total of 12 seeds.[0m
+[1;94m[*] [0mNo auto-generated dictionary tokens to reuse.[0m
+[1;94m[*] [0mAttempting dry run with 'id:000000,time:0,execs:0,orig:basic.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000000,time:0,execs:0,orig:basic.bin[0m
+[1;90m    len = 40, map size = 485, exec speed = 2335 us, hash = e96fe9b3cc99c188
+[0m[1;94m[*] [0mAttempting dry run with 'id:000001,time:0,execs:0,orig:big_align.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000001,time:0,execs:0,orig:big_align.bin[0m
+[1;90m    len = 112, map size = 549, exec speed = 50993 us, hash = 1aeeed57547f763c
+[0m[1;94m[*] [0mAttempting dry run with 'id:000002,time:0,execs:0,orig:churn.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000002,time:0,execs:0,orig:churn.bin[0m
+[1;90m    len = 4800, map size = 485, exec speed = 1946 us, hash = e477d2a86b288a1d
+[0m[1;94m[*] [0mAttempting dry run with 'id:000003,time:0,execs:0,orig:class_edges.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000003,time:0,execs:0,orig:class_edges.bin[0m
+[1;90m    len = 768, map size = 550, exec speed = 18318 us, hash = 9e0c53e9f01a0477
+[0m[1;94m[*] [0mAttempting dry run with 'id:000004,time:0,execs:0,orig:classes.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000004,time:0,execs:0,orig:classes.bin[0m
+[1;90m    len = 528, map size = 557, exec speed = 103318 us, hash = 3afc11a57c90773c
+[0m[1;94m[*] [0mAttempting dry run with 'id:000005,time:0,execs:0,orig:exhaust_realloc.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000005,time:0,execs:0,orig:exhaust_realloc.bin[0m
+[1;90m    len = 3072, map size = 527, exec speed = 1271067 us, hash = d5e64b06f778f18d
+[0m[1;94m[*] [0mAttempting dry run with 'id:000006,time:0,execs:0,orig:exhaust_small.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000006,time:0,execs:0,orig:exhaust_small.bin[0m
+[1;90m    len = 5120, map size = 528, exec speed = 481472 us, hash = 11638aa301e38d19
+[0m[1;94m[*] [0mAttempting dry run with 'id:000007,time:0,execs:0,orig:large_cache.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000007,time:0,execs:0,orig:large_cache.bin[0m
+[1;90m    len = 256, map size = 554, exec speed = 198346 us, hash = 80afe306f7b1214c
+[0m[1;94m[*] [0mAttempting dry run with 'id:000008,time:0,execs:0,orig:realloc_chain.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000008,time:0,execs:0,orig:realloc_chain.bin[0m
+[1;90m    len = 64, map size = 573, exec speed = 8568 us, hash = af82ae27223464bf
+[0m[1;94m[*] [0mAttempting dry run with 'id:000009,time:0,execs:0,orig:zeroed_close_size.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000009,time:0,execs:0,orig:zeroed_close_size.bin[0m
+[1;90m    len = 32, map size = 542, exec speed = 13356 us, hash = 89f1d99030e35701
+[0m[1;94m[*] [0mAttempting dry run with 'id:000010,time:0,execs:0,orig:zeroed_large.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000010,time:0,execs:0,orig:zeroed_large.bin[0m
+[1;90m    len = 32, map size = 542, exec speed = 19949 us, hash = 56f2388522e340e8
+[0m[1;93m[!] [1;97mWARNING: [0mNo new instrumentation output, test case may be useless.[0m
+[1;94m[*] [0mAttempting dry run with 'id:000011,time:0,execs:0,orig:zeroed_small.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000011,time:0,execs:0,orig:zeroed_small.bin[0m
+[1;90m    len = 32, map size = 490, exec speed = 840 us, hash = 943176aa3abbd2a5
+[0m[1;92m[+] [0mAll test cases processed.[0m
+[1;93m[!] [1;97mWARNING: [0m[1;91mThe target binary is pretty slow! See docs/fuzzing_in_depth.md#i-improve-the-speed[0m
+[1;93m[!] [1;97mWARNING: [0m[1;91mSome test cases look useless. Consider using a smaller set.[0m
+[1;92m[+] [0mHere are some useful stats:
+
+[1;90m    Test case count : [0m8 favored, 12 variable, 0 ignored, 12 total
+[1;90m       Bitmap range : [0m485 to 573 bits (average: 531.83 bits)
+[1;90m        Exec timing : [0m840 to 1.27M us (average: 180k us)
+[0m
+[1;94m[*] [0m-t option specified. We'll use an exec timeout of 5000 ms.[0m
+[1;92m[+] [0mAll set and ready to roll![0m
+[1;94m[*] [0mEntering queue cycle 1
+[0m
+[1;94m[*] [0mFuzzing test case #0 (12 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=100, weight=1, favorite=1, was_fuzzed=0, exec_us=2335, hits=0, map=485, ascii=0, run_time=0:00:00:00, cvg=28.73%) FS (t=0:00:00:00 (0.00%), st=0, avg=0 ms, found=0/0)...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000012,src:000000,time:13,execs:155,op:(null),pos:0,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000013,src:000000,time:20,execs:168,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000014,src:000000,time:38,execs:186,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000015,src:000000,time:57,execs:203,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000016,src:000000,time:66,execs:217,op:(null),pos:0,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000017,src:000000,time:73,execs:230,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000018,src:000000,time:85,execs:246,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000019,src:000000,time:108,execs:289,op:havoc,rep:3,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000020,src:000000,time:114,execs:302,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000021,src:000000,time:127,execs:315,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000022,src:000000,time:148,execs:328,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000023,src:000000,time:252,execs:341,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000024,src:000000,time:264,execs:354,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000025,src:000000,time:292,execs:367,op:havoc,rep:4,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000026,src:000000,time:487,execs:381,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000027,src:000000,time:514,execs:397,op:havoc,rep:4,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000028,src:000000,time:697,execs:410,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000029,src:000000,time:703,execs:423,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000030,src:000000,time:710,execs:439,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000031,src:000000,time:720,execs:452,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000032,src:000000,time:729,execs:465,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000033,src:000000,time:738,execs:480,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000034,src:000000,time:756,execs:500,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000035,src:000000,time:904,execs:513,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000036,src:000000,time:962,execs:532,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000037,src:000000,time:1138,execs:547,op:havoc,rep:3,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000038,src:000000,time:1145,execs:560,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000039,src:000000,time:1152,execs:573,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000040,src:000000,time:1186,execs:593,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000041,src:000000,time:1209,execs:612,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000042,src:000000,time:1291,execs:625,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000043,src:000000,time:1307,execs:642,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000044,src:000000,time:1316,execs:656,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000045,src:000000,time:1343,execs:676,op:havoc,rep:3,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000046,src:000000,time:1624,execs:692,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000047,src:000000,time:1645,execs:706,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000048,src:000000,time:1699,execs:724,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000049,src:000000,time:1797,execs:737,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000050,src:000000,time:1852,execs:757,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000051,src:000000,time:2004,execs:774,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000052,src:000000,time:2021,execs:790,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000053,src:000000,time:2076,execs:819,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000054,src:000000,time:2113,execs:840,op:havoc,rep:4,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000055,src:000000,time:2436,execs:855,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000056,src:000000,time:2480,execs:876,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000057,src:000000,time:2800,execs:894,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000058,src:000000,time:3003,execs:922,op:havoc,rep:3,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000059,src:000000,time:3333,execs:940,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000060,src:000000,time:6126,execs:963,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000061,src:000000,time:6133,execs:979,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000062,src:000000,time:6185,execs:1008,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000063,src:000000,time:6387,execs:1042,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000064,src:000000,time:6395,execs:1056,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000065,src:000000,time:6471,execs:1088,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000066,src:000000,time:6513,execs:1102,op:havoc,rep:4,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000067,src:000000,time:6846,execs:1138,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000068,src:000000,time:6995,execs:1154,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000069,src:000000,time:7024,execs:1180,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000070,src:000000,time:7055,execs:1197,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000071,src:000000,time:7181,execs:1218,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000072,src:000000,time:7412,execs:1247,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000073,src:000000,time:8312,execs:1322,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000074,src:000000,time:9019,execs:1394,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000076,src:000000,time:9837,execs:1448,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000077,src:000000,time:10072,execs:1485,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000078,src:000000,time:10264,execs:1511,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000079,src:000000,time:10321,execs:1526,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000081,src:000000,time:11246,execs:1645,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000082,src:000000,time:11560,execs:1703,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000083,src:000000,time:11967,execs:1761,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000084,src:000000,time:13177,execs:1932,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000085,src:000000,time:13658,execs:1976,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000086,src:000000,time:13871,execs:2012,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000087,src:000000,time:14300,execs:2037,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000088,src:000000,time:14333,execs:2055,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000089,src:000000,time:14809,execs:2125,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000091,src:000000,time:15258,execs:2208,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000092,src:000000,time:15323,execs:2241,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000093,src:000000,time:15777,execs:2256,op:havoc,rep:4,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000094,src:000000,time:15897,execs:2298,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000095,src:000000,time:16012,execs:2336,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000096,src:000000,time:17616,execs:2603,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000098,src:000000,time:21424,execs:2723,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000099,src:000000,time:21806,execs:2761,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000100,sync:main,src:000021[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000101,sync:main,src:000040[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000102,sync:main,src:000050[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000103,sync:main,src:000078,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000104,sync:main,src:000080[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000105,sync:main,src:000083,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/explore-3/queue/id:000106,sync:main,src:000087[0m
+[1;94m[*] [0mFuzzing test case #5 (107 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=100, weight=1, favorite=1, was_fuzzed=0, exec_us=1271067, hits=0, map=527, ascii=0, run_time=0:00:00:35, cvg=30.59%) FS (t=0:00:00:00 (0.28%), st=51, avg=98 ms, found=0/1)...[0m
+[?25h[1;91m
+
++++ Testing aborted by user +++
+[0m[1;94m[*] [0mStatistics: 88 new corpus items found, 30.59% coverage achieved, 0 crashes saved, 0 timeouts saved, total runtime 0 days, 0 hrs, 6 min, 24 sec[0m
+[1;94m[*] [0mWriting artifacts/alloc_threads/explore-3/fastresume.bin ...[0m
+[1;92m[+] [0mfastresume.bin successfully written with 27259 bytes.[0m
+[1;92m[+] [0mWe're done here. Have a nice day!
+[0m

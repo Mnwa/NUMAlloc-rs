@@ -1,0 +1,147 @@
+[1;92m[+] [0mEnabled environment variable AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_NO_AFFINITY with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_NO_UI with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_SKIP_CPUFREQ with value 1[0m
+[1;94m[*] [0mSpinning up the fork server...[0m
+[1;92m[+] [0mAll right - new fork server model v1 is up.[0m
+[1;94m[*] [0mTarget map size: 1471[0m
+[1;94m[*] [0mUsing SHARED MEMORY FUZZING feature.[0m
+[0;36mafl-fuzz++4.40c[0m based on afl by Michal Zalewski and a large online community
+[1;94m[*] [0mDisabling cmplog again because of '-c -'.[0m
+[1;92m[+] [0mAFL++ is maintained by Marc "van Hauser" Heuse, Dominik Maier, Andrea Fioraldi and Heiko "hexcoder" Eißfeldt[0m
+[1;92m[+] [0mAFL++ is open source, get it at https://github.com/AFLplusplus/AFLplusplus[0m
+[1;92m[+] [0mNOTE: AFL++ >= v3 has changed defaults and behaviours - see README.md[0m
+[1;94m[*] [0mGetting to work...[0m
+[1;92m[+] [0mUsing exponential power schedule (FAST)[0m
+[1;92m[+] [0mEnabled testcache with 50 MB[0m
+[1;92m[+] [0mGenerating fuzz data with a length of min=1 max=1048576[0m
+[1;92m[+] [0mFrameShift status: enabled (10% overhead configured)[0m
+[1;94m[*] [0mChecking core_pattern...[0m
+
+[1;91m[-] [0mYour system is configured to send core dump notifications to an
+    external utility. This will cause issues: there will be an extended delay
+    between stumbling upon a crash and having this information relayed to the
+    fuzzer via the standard waitpid() API.
+    If you're just experimenting, set 'AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1'.
+
+    To avoid having crashes misinterpreted as timeouts, please 
+    temporarily modify /proc/sys/kernel/core_pattern, like so:
+
+    echo core | sudo tee /proc/sys/kernel/core_pattern
+[1;92m[+] [0mDisabling the UI because AFL_NO_UI is set.[0m
+[1;92m[+] [0mYou have 24 CPU cores and 8 runnable tasks (utilization: 33%).[0m
+[1;92m[+] [0mTry parallel jobs - see docs/fuzzing_in_depth.md#c-using-multiple-cores[0m
+[1;94m[*] [0mSetting up output directories...[0m
+[1;92m[+] [0mOutput directory exists but deemed OK to reuse.[0m
+[1;94m[*] [0mDeleting old session data...[0m
+[1;92m[+] [0mOutput dir cleanup successful.[0m
+[1;93m[!] [1;97mWARNING: [0mNot binding to a CPU core (AFL_NO_AFFINITY set).[0m
+[1;93m[!] [1;97mWARNING: [0mno -M main node found. It is recommended to run exactly one main instance.[0m
+[1;94m[*] [0mValidating target binary...[0m
+[1;92m[+] [0m[1;95mPersistent mode binary detected.[0m
+[1;92m[+] [0m[1;95mDeferred forkserver binary detected.[0m
+[1;94m[*] [0mScanning 'corpus/alloc_ops'...[0m
+[1;94m[*] [0mCreating hard links for all input files...[0m
+[1;92m[+] [0mLoaded a total of 12 seeds.[0m
+[1;94m[*] [0mNo auto-generated dictionary tokens to reuse.[0m
+[1;94m[*] [0mAttempting dry run with 'id:000000,time:0,execs:0,orig:basic.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000000,time:0,execs:0,orig:basic.bin[0m
+[1;90m    len = 20, map size = 151, exec speed = 118 us, hash = a9e3ee0ee854c9c6
+[0m[1;94m[*] [0mAttempting dry run with 'id:000001,time:0,execs:0,orig:big_align.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000001,time:0,execs:0,orig:big_align.bin[0m
+[1;90m    len = 56, map size = 215, exec speed = 7042 us, hash = 892016b7f16c6fe5
+[0m[1;94m[*] [0mAttempting dry run with 'id:000002,time:0,execs:0,orig:churn.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000002,time:0,execs:0,orig:churn.bin[0m
+[1;90m    len = 2400, map size = 152, exec speed = 504 us, hash = f90332fb59d76498
+[0m[1;94m[*] [0mAttempting dry run with 'id:000003,time:0,execs:0,orig:class_edges.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000003,time:0,execs:0,orig:class_edges.bin[0m
+[1;90m    len = 384, map size = 232, exec speed = 3151 us, hash = a4bec0c8dd16c463
+[0m[1;94m[*] [0mAttempting dry run with 'id:000004,time:0,execs:0,orig:classes.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000004,time:0,execs:0,orig:classes.bin[0m
+[1;90m    len = 264, map size = 238, exec speed = 17324 us, hash = 63eae6f03c3f11ba
+[0m[1;94m[*] [0mAttempting dry run with 'id:000005,time:0,execs:0,orig:exhaust_realloc.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000005,time:0,execs:0,orig:exhaust_realloc.bin[0m
+[1;90m    len = 1536, map size = 246, exec speed = 245731 us, hash = 2bc88ad80fc5a73d
+[0m[1;94m[*] [0mAttempting dry run with 'id:000006,time:0,execs:0,orig:exhaust_small.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000006,time:0,execs:0,orig:exhaust_small.bin[0m
+[1;90m    len = 2560, map size = 227, exec speed = 99720 us, hash = c45931abcd98da18
+[0m[1;94m[*] [0mAttempting dry run with 'id:000007,time:0,execs:0,orig:large_cache.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000007,time:0,execs:0,orig:large_cache.bin[0m
+[1;90m    len = 128, map size = 192, exec speed = 31857 us, hash = 76f25094a163547e
+[0m[1;94m[*] [0mAttempting dry run with 'id:000008,time:0,execs:0,orig:realloc_chain.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000008,time:0,execs:0,orig:realloc_chain.bin[0m
+[1;90m    len = 32, map size = 253, exec speed = 663 us, hash = d4a6ee284dfef1fe
+[0m[1;94m[*] [0mAttempting dry run with 'id:000009,time:0,execs:0,orig:zeroed_close_size.bin'...[0m
+[1;90m    len = 16, map size = 180, exec speed = 2319 us, hash = a40b817dbc31d8f8
+[0m[1;94m[*] [0mAttempting dry run with 'id:000010,time:0,execs:0,orig:zeroed_large.bin'...[0m
+[1;90m    len = 16, map size = 180, exec speed = 2189 us, hash = 67e388cb92cd0590
+[0m[1;93m[!] [1;97mWARNING: [0mNo new instrumentation output, test case may be useless.[0m
+[1;94m[*] [0mAttempting dry run with 'id:000011,time:0,execs:0,orig:zeroed_small.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000011,time:0,execs:0,orig:zeroed_small.bin[0m
+[1;90m    len = 16, map size = 161, exec speed = 141 us, hash = 4ef2f44c4ad84e80
+[0m[1;92m[+] [0mAll test cases processed.[0m
+[1;93m[!] [1;97mWARNING: [0m[1;91mThe target binary is pretty slow! See docs/fuzzing_in_depth.md#i-improve-the-speed[0m
+[1;93m[!] [1;97mWARNING: [0m[1;91mSome test cases look useless. Consider using a smaller set.[0m
+[1;92m[+] [0mHere are some useful stats:
+
+[1;90m    Test case count : [0m7 favored, 10 variable, 0 ignored, 12 total
+[1;90m       Bitmap range : [0m151 to 253 bits (average: 202.25 bits)
+[1;90m        Exec timing : [0m118 to 245k us (average: 36.6k us)
+[0m
+[1;94m[*] [0m-t option specified. We'll use an exec timeout of 5000 ms.[0m
+[1;92m[+] [0mAll set and ready to roll![0m
+[1;94m[*] [0mEntering queue cycle 1
+[0m
+[1;94m[*] [0mFuzzing test case #0 (12 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=100, weight=1, favorite=1, was_fuzzed=0, exec_us=118, hits=0, map=151, ascii=0, run_time=0:00:00:00, cvg=30.80%) FS (t=0:00:00:00 (0.00%), st=0, avg=0 ms, found=0/0)...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000021,src:000000,time:23,execs:232,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000022,src:000000,time:117,execs:245,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000023,src:000000,time:132,execs:258,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000031,src:000000,time:309,execs:342,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000032,src:000000,time:371,execs:362,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000035,src:000000,time:378,execs:396,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000040,src:000000,time:409,execs:462,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000041,src:000000,time:434,execs:479,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000042,src:000000,time:764,execs:494,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000043,src:000000,time:828,execs:507,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000045,src:000000,time:835,execs:536,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000047,src:000000,time:910,execs:562,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000049,src:000000,time:1004,execs:591,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000059,src:000000,time:1315,execs:845,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000061,src:000000,time:1674,execs:874,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000062,src:000000,time:1969,execs:893,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000070,src:000000,time:2306,execs:1229,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000072,src:000000,time:2670,execs:1287,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000074,src:000000,time:3070,execs:1377,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000075,src:000000,time:3556,execs:1396,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000076,src:000000,time:3575,execs:1419,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000077,src:000000,time:3720,execs:1443,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000085,src:000000,time:4492,execs:1657,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000086,src:000000,time:4848,execs:1698,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000090,src:000000,time:5292,execs:1994,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000091,src:000000,time:5506,execs:2014,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000093,src:000000,time:5836,execs:2181,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000096,src:000000,time:6554,execs:2288,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000097,src:000000,time:6731,execs:2337,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000099,src:000000,time:7423,execs:2426,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000100,src:000000,time:7866,execs:2491,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000103,src:000000,time:8475,execs:2866,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000108,src:000000,time:8908,execs:3166,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000110,src:000000,time:9463,execs:3385,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000111,src:000000,time:9682,execs:3480,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000113,sync:main,src:000045[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000114,sync:main,src:000047[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000116,sync:main,src:000072[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000118,sync:main,src:000095,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000120,sync:main,src:000106[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000121,sync:main,src:000107[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000122,sync:main,src:000108[0m
+[1;94m[*] [0mFuzzing test case #5 (124 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=100, weight=1, favorite=1, was_fuzzed=0, exec_us=245731, hits=1, map=246, ascii=0, run_time=0:00:00:12, cvg=32.97%) FS (t=0:00:00:00 (0.09%), st=26, avg=12 ms, found=0/1)...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_ops/fast-7/queue/id:000124,src:000005,time:256666,execs:4583,op:havoc,rep:1[0m
+[?25h[1;91m
+
++++ Testing aborted by user +++
+[0m[1;94m[*] [0mStatistics: 116 new corpus items found, 33.58% coverage achieved, 0 crashes saved, 0 timeouts saved, total runtime 0 days, 0 hrs, 6 min, 47 sec[0m
+[1;94m[*] [0mWriting artifacts/alloc_ops/fast-7/fastresume.bin ...[0m
+[1;92m[+] [0mfastresume.bin successfully written with 24531 bytes.[0m
+[1;92m[+] [0mWe're done here. Have a nice day!
+[0m

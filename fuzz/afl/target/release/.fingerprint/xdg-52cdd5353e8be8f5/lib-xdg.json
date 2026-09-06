@@ -1,0 +1,1 @@
+{"rustc":1625334936438085654,"features":"[]","declared_features":"[\"serde\"]","target":6991953607669246588,"profile":2040997289075261528,"path":12103433183219530356,"deps":[],"local":[{"CheckDepInfo":{"dep_info":"release/.fingerprint/xdg-52cdd5353e8be8f5/dep-lib-xdg","checksum":false}}],"rustflags":[],"config":9396254390672932401,"compile_kind":0}

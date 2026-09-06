@@ -51,3 +51,63 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
       - run: cargo test
+
+  fuzz-replay:
+    name: Fuzz corpus replay
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            fuzz/afl/target
+          key: ${{ runner.os }}-cargo-fuzz-replay-${{ hashFiles('fuzz/afl/Cargo.lock') }}
+      - run: cargo test --release
+        working-directory: fuzz/afl
+
+  miri:
+    name: Miri
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: miri
+      - run: cargo miri setup
+      - run: cargo miri test
+
+  asan:
+    name: AddressSanitizer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@nightly
+      - run: scripts/sanitizers.sh asan
+
+  fuzz-smoke:
+    name: AFL smoke (60s per target)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/cargo-afl
+            ~/.local/share/afl.rs
+          key: ${{ runner.os }}-cargo-afl-0.18
+      - run: command -v cargo-afl || cargo install cargo-afl --locked
+      - run: cargo afl config --build --force
+      - run: SMOKE_SECONDS=60 scripts/fuzz-smoke.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: afl-smoke-artifacts
+          path: |
+            fuzz/afl/artifacts/smoke/*/ci/crashes
+            fuzz/afl/artifacts/smoke/*/ci/hangs
+            fuzz/afl/artifacts/smoke/*/ci/fuzzer_stats
+          if-no-files-found: ignore

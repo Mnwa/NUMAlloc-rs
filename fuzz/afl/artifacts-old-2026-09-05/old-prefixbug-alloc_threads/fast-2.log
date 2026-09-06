@@ -1,0 +1,282 @@
+[1;92m[+] [0mEnabled environment variable AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_NO_AFFINITY with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_NO_UI with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_SKIP_CPUFREQ with value 1[0m
+[1;94m[*] [0mSpinning up the fork server...[0m
+[1;92m[+] [0mAll right - new fork server model v1 is up.[0m
+[1;94m[*] [0mTarget map size: 4713[0m
+[1;94m[*] [0mUsing SHARED MEMORY FUZZING feature.[0m
+[0;36mafl-fuzz++4.40c[0m based on afl by Michal Zalewski and a large online community
+[1;94m[*] [0mDisabling cmplog again because of '-c -'.[0m
+[1;92m[+] [0mAFL++ is maintained by Marc "van Hauser" Heuse, Dominik Maier, Andrea Fioraldi and Heiko "hexcoder" Eißfeldt[0m
+[1;92m[+] [0mAFL++ is open source, get it at https://github.com/AFLplusplus/AFLplusplus[0m
+[1;92m[+] [0mNOTE: AFL++ >= v3 has changed defaults and behaviours - see README.md[0m
+[1;94m[*] [0mGetting to work...[0m
+[1;92m[+] [0mUsing exponential power schedule (FAST)[0m
+[1;92m[+] [0mEnabled testcache with 50 MB[0m
+[1;92m[+] [0mGenerating fuzz data with a length of min=1 max=1048576[0m
+[1;92m[+] [0mFrameShift status: enabled (10% overhead configured)[0m
+[1;94m[*] [0mChecking core_pattern...[0m
+
+[1;91m[-] [0mYour system is configured to send core dump notifications to an
+    external utility. This will cause issues: there will be an extended delay
+    between stumbling upon a crash and having this information relayed to the
+    fuzzer via the standard waitpid() API.
+    If you're just experimenting, set 'AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1'.
+
+    To avoid having crashes misinterpreted as timeouts, please 
+    temporarily modify /proc/sys/kernel/core_pattern, like so:
+
+    echo core | sudo tee /proc/sys/kernel/core_pattern
+[1;92m[+] [0mDisabling the UI because AFL_NO_UI is set.[0m
+[1;92m[+] [0mYou have 24 CPU cores and 9 runnable tasks (utilization: 38%).[0m
+[1;92m[+] [0mTry parallel jobs - see docs/fuzzing_in_depth.md#c-using-multiple-cores[0m
+[1;94m[*] [0mSetting up output directories...[0m
+[1;93m[!] [1;97mWARNING: [0mNot binding to a CPU core (AFL_NO_AFFINITY set).[0m
+[1;94m[*] [0mValidating target binary...[0m
+[1;92m[+] [0m[1;95mPersistent mode binary detected.[0m
+[1;92m[+] [0m[1;95mDeferred forkserver binary detected.[0m
+[1;94m[*] [0mScanning 'corpus/alloc_threads'...[0m
+[1;94m[*] [0mCreating hard links for all input files...[0m
+[1;92m[+] [0mLoaded a total of 12 seeds.[0m
+[1;94m[*] [0mNo auto-generated dictionary tokens to reuse.[0m
+[1;94m[*] [0mAttempting dry run with 'id:000000,time:0,execs:0,orig:basic.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000000,time:0,execs:0,orig:basic.bin[0m
+[1;90m    len = 40, map size = 728, exec speed = 609 us, hash = c3811f5ca8f58915
+[0m[1;94m[*] [0mAttempting dry run with 'id:000001,time:0,execs:0,orig:big_align.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000001,time:0,execs:0,orig:big_align.bin[0m
+[1;90m    len = 112, map size = 804, exec speed = 849 us, hash = 59407b137bd55250
+[0m[1;94m[*] [0mAttempting dry run with 'id:000002,time:0,execs:0,orig:churn.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000002,time:0,execs:0,orig:churn.bin[0m
+[1;90m    len = 4800, map size = 728, exec speed = 1754 us, hash = 33962ab47fda69db
+[0m[1;94m[*] [0mAttempting dry run with 'id:000003,time:0,execs:0,orig:class_edges.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000003,time:0,execs:0,orig:class_edges.bin[0m
+[1;90m    len = 768, map size = 805, exec speed = 2104 us, hash = 11731a123be71bc0
+[0m[1;94m[*] [0mAttempting dry run with 'id:000004,time:0,execs:0,orig:classes.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000004,time:0,execs:0,orig:classes.bin[0m
+[1;90m    len = 528, map size = 812, exec speed = 1951 us, hash = 7bee048159125855
+[0m[1;94m[*] [0mAttempting dry run with 'id:000005,time:0,execs:0,orig:exhaust_realloc.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000005,time:0,execs:0,orig:exhaust_realloc.bin[0m
+[1;90m    len = 3072, map size = 746, exec speed = 72061 us, hash = a7e22cda3c35889d
+[0m[1;94m[*] [0mAttempting dry run with 'id:000006,time:0,execs:0,orig:exhaust_small.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000006,time:0,execs:0,orig:exhaust_small.bin[0m
+[1;90m    len = 5120, map size = 696, exec speed = 24180 us, hash = f39d9c7a7b9b1713
+[0m[1;94m[*] [0mAttempting dry run with 'id:000007,time:0,execs:0,orig:large_cache.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000007,time:0,execs:0,orig:large_cache.bin[0m
+[1;90m    len = 256, map size = 786, exec speed = 4282 us, hash = 7749415f1be65fea
+[0m[1;94m[*] [0mAttempting dry run with 'id:000008,time:0,execs:0,orig:realloc_chain.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000008,time:0,execs:0,orig:realloc_chain.bin[0m
+[1;90m    len = 64, map size = 827, exec speed = 819 us, hash = 66821ff257293278
+[0m[1;94m[*] [0mAttempting dry run with 'id:000009,time:0,execs:0,orig:zeroed_close_size.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000009,time:0,execs:0,orig:zeroed_close_size.bin[0m
+[1;90m    len = 32, map size = 794, exec speed = 1010 us, hash = 853672ba954e1859
+[0m[1;94m[*] [0mAttempting dry run with 'id:000010,time:0,execs:0,orig:zeroed_large.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000010,time:0,execs:0,orig:zeroed_large.bin[0m
+[1;90m    len = 32, map size = 794, exec speed = 1023 us, hash = 07bf94d65ac907ba
+[0m[1;93m[!] [1;97mWARNING: [0mNo new instrumentation output, test case may be useless.[0m
+[1;94m[*] [0mAttempting dry run with 'id:000011,time:0,execs:0,orig:zeroed_small.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000011,time:0,execs:0,orig:zeroed_small.bin[0m
+[1;90m    len = 32, map size = 732, exec speed = 663 us, hash = e189b532de99b9e1
+[0m[1;92m[+] [0mAll test cases processed.[0m
+[1;93m[!] [1;97mWARNING: [0m[1;91mSome test cases look useless. Consider using a smaller set.[0m
+[1;92m[+] [0mHere are some useful stats:
+
+[1;90m    Test case count : [0m8 favored, 12 variable, 0 ignored, 12 total
+[1;90m       Bitmap range : [0m696 to 827 bits (average: 771.00 bits)
+[1;90m        Exec timing : [0m609 to 72.1k us (average: 9275 us)
+[0m
+[1;94m[*] [0m-t option specified. We'll use an exec timeout of 5000 ms.[0m
+[1;92m[+] [0mAll set and ready to roll![0m
+[1;94m[*] [0mEntering queue cycle 1
+[0m
+[1;94m[*] [0mFuzzing test case #0 (12 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=100, weight=1, favorite=1, was_fuzzed=0, exec_us=609, hits=0, map=728, ascii=0, run_time=0:00:00:00, cvg=19.03%) FS (t=0:00:00:00 (0.00%), st=0, avg=0 ms, found=0/0)...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000012,src:000000,time:7,execs:155,op:(null),pos:0,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000013,src:000000,time:17,execs:168,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000014,src:000000,time:31,execs:186,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000015,src:000000,time:44,execs:203,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000016,src:000000,time:54,execs:217,op:(null),pos:0,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000017,src:000000,time:63,execs:230,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000018,src:000000,time:75,execs:246,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000019,src:000000,time:109,execs:291,op:quick,pos:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000020,src:000000,time:121,execs:306,op:quick,pos:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000021,src:000000,time:130,execs:319,op:quick,pos:5,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000022,src:000000,time:138,execs:333,op:quick,pos:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000023,src:000000,time:156,execs:359,op:quick,pos:21[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000024,src:000000,time:168,execs:375,op:quick,pos:25,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000025,src:000000,time:187,execs:404,op:flip1,pos:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000026,src:000000,time:195,execs:418,op:flip1,pos:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000027,src:000000,time:208,execs:436,op:flip1,pos:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000028,src:000000,time:223,execs:458,op:flip1,pos:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000029,src:000000,time:251,execs:499,op:flip2,pos:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000030,src:000000,time:286,execs:559,op:flip4,pos:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000031,src:000000,time:333,execs:634,op:flip32,pos:7,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000032,src:000000,time:798,execs:1456,op:arith32,pos:7,val:be:-1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000033,src:000000,time:819,execs:1495,op:arith32,pos:7,val:be:-28[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000034,src:000000,time:828,execs:1512,op:arith32,pos:7,val:be:-33,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000035,src:000000,time:945,execs:1714,op:int32,pos:1,val:be:-128[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000036,src:000000,time:980,execs:1770,op:int32,pos:1,val:+2147483647[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000037,src:000000,time:1109,execs:1996,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000038,src:000000,time:1116,execs:2009,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000039,src:000000,time:1126,execs:2022,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000040,src:000000,time:1134,execs:2035,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000041,src:000000,time:1141,execs:2049,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000042,src:000000,time:1153,execs:2064,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000043,src:000000,time:1162,execs:2079,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000044,src:000000,time:1171,execs:2094,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000045,src:000000,time:1179,execs:2109,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000046,src:000000,time:1192,execs:2130,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000047,src:000000,time:1206,execs:2143,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000048,src:000000,time:1213,execs:2156,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000049,src:000000,time:1220,execs:2170,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000050,src:000000,time:1229,execs:2187,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000051,src:000000,time:1236,execs:2200,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000052,src:000000,time:1246,execs:2216,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000053,src:000000,time:1257,execs:2232,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000054,src:000000,time:1266,execs:2247,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000055,src:000000,time:1275,execs:2261,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000056,src:000000,time:1287,execs:2282,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000057,src:000000,time:1294,execs:2295,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000058,src:000000,time:1309,execs:2323,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000059,src:000000,time:1325,execs:2350,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000060,src:000000,time:1341,execs:2378,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000061,src:000000,time:1354,execs:2400,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000062,src:000000,time:1371,execs:2429,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000063,src:000000,time:1381,execs:2445,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000064,src:000000,time:1393,execs:2467,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000065,src:000000,time:1406,execs:2491,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000066,src:000000,time:1423,execs:2525,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000067,src:000000,time:1439,execs:2557,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000068,src:000000,time:1458,execs:2591,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000069,src:000000,time:1480,execs:2635,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000070,src:000000,time:1512,execs:2698,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000071,src:000000,time:1523,execs:2722,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000072,src:000000,time:1537,execs:2747,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000073,src:000000,time:1555,execs:2788,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000074,src:000000,time:1587,execs:2842,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000075,src:000000,time:1656,execs:2859,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000076,src:000000,time:1665,execs:2875,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000077,src:000000,time:1691,execs:2932,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000078,src:000000,time:1715,execs:2983,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000080,src:000000,time:1736,execs:3020,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000081,src:000000,time:1743,execs:3034,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000082,src:000000,time:1750,execs:3048,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000084,src:000000,time:1764,execs:3075,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000085,src:000000,time:1797,execs:3166,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000086,src:000000,time:1821,execs:3217,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000087,src:000000,time:1834,execs:3241,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000088,src:000000,time:1890,execs:3259,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000090,src:000000,time:1943,execs:3348,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000093,src:000000,time:2126,execs:3768,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000096,src:000000,time:2191,execs:3942,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000097,src:000000,time:2233,execs:4067,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000099,src:000000,time:2301,execs:4250,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000100,src:000000,time:2333,execs:4334,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000101,src:000000,time:2409,execs:4444,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000102,src:000000,time:2486,execs:4470,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000104,src:000000,time:2599,execs:4763,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000105,src:000000,time:2633,execs:4860,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000106,src:000000,time:2662,execs:4914,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000107,src:000000,time:2810,execs:5325,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000108,src:000000,time:2942,execs:5438,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000109,src:000000,time:3007,execs:5652,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000110,src:000000,time:3056,execs:5809,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000112,src:000000,time:3130,execs:6035,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000113,src:000000,time:3208,execs:6215,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000115,src:000000,time:3380,execs:6720,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000116,src:000000,time:3392,execs:6742,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000119,src:000000,time:8940,execs:8428,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000120,src:000000,time:13620,execs:9100,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000121,src:000000,time:18096,execs:10024,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000122,src:000000,time:18282,execs:10324,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000123,src:000000,time:18495,execs:10934,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000124,src:000000,time:18520,execs:11009,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000126,src:000000,time:18642,execs:11320,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000127,src:000000,time:19013,execs:12197,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000129,src:000000,time:23645,execs:13493,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000130,src:000000,time:23702,execs:13650,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000132,src:000000,time:45190,execs:19754,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000133,src:000000,time:45224,execs:19848,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000134,src:000000,time:45656,execs:21134,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000135,src:000000,time:45795,execs:21541,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000136,src:000000,time:45976,execs:22015,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000137,src:000000,time:46155,execs:22506,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000138,src:000000,time:46643,execs:23969,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000139,src:000000,time:46943,execs:24602,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000140,src:000000,time:47635,execs:26674,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000141,src:000000,time:47682,execs:26759,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000142,src:000000,time:64059,execs:31735,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000143,src:000000,time:64339,execs:32476,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000144,src:000000,time:64479,execs:32894,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000145,src:000000,time:64533,execs:33028,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000146,src:000000,time:64749,execs:33576,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000147,src:000000,time:64905,execs:33804,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000148,src:000000,time:64976,execs:34003,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000149,src:000000,time:75601,execs:36070,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000150,src:000000,time:75652,execs:36225,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000151,src:000000,time:85845,execs:38463,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000152,src:000000,time:108940,execs:41284,op:havoc,rep:2,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000153,src:000000,time:119172,execs:42824,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000154,src:000000,time:123875,execs:43167,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000156,sync:main,src:000058[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000157,sync:main,src:000071[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000158,sync:main,src:000103[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000159,sync:main,src:000109,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000160,sync:main,src:000120[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000161,sync:main,src:000140[0m
+[1;94m[*] [0mFuzzing test case #5 (162 total, [0;31m16 crashes saved[0m, state: started :-), mode=explore, perf_score=100, weight=1, favorite=1, was_fuzzed=0, exec_us=72061, hits=0, map=746, ascii=0, run_time=0:00:02:27, cvg=21.26%) FS (t=0:00:00:00 (0.07%), st=51, avg=101 ms, found=0/1)...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000162,src:000005,time:190703,execs:56271,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000163,src:000005,time:191145,execs:56285,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000164,src:000005,time:191452,execs:56298,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000165,src:000005,time:191872,execs:56314,op:havoc,rep:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000166,src:000005,time:192333,execs:56327,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000167,src:000005,time:192772,execs:56340,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000168,src:000005,time:196550,execs:56354,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000169,src:000005,time:196850,execs:56367,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000170,src:000005,time:200387,execs:56381,op:havoc,rep:6[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000171,src:000005,time:203861,execs:56395,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000172,src:000005,time:203944,execs:56408,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000173,src:000005,time:207750,execs:56422,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000174,src:000005,time:211658,execs:56437,op:havoc,rep:6[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000175,src:000005,time:211808,execs:56451,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000176,src:000005,time:211912,execs:56464,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000177,src:000005,time:212334,execs:56478,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000178,src:000005,time:219109,execs:56495,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000179,src:000005,time:219290,execs:56508,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000180,src:000005,time:227497,execs:56528,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000181,src:000005,time:241052,execs:56545,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000182,src:000005,time:245024,execs:56559,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000183,src:000005,time:245458,execs:56573,op:havoc,rep:8,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000184,src:000005,time:253371,execs:56590,op:havoc,rep:13,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000185,src:000005,time:257279,execs:56604,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000186,src:000005,time:257703,execs:56617,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000187,src:000005,time:261095,execs:56633,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000188,src:000005,time:261185,execs:56646,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000189,src:000005,time:284317,execs:56675,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000190,src:000005,time:287393,execs:56689,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000191,src:000005,time:292457,execs:56704,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000192,src:000005,time:297346,execs:56719,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000193,src:000005,time:299896,execs:56734,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000194,src:000005,time:304835,execs:56749,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000195,src:000005,time:305127,execs:56762,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000196,src:000005,time:330037,execs:56790,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000197,src:000005,time:335611,execs:56808,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000198,src:000005,time:335777,execs:56821,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000199,src:000005,time:358231,execs:56851,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000200,src:000005,time:363552,execs:56869,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000201,src:000005,time:397971,execs:56909,op:havoc,rep:6[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000202,src:000005,time:409604,execs:56931,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000203,src:000005,time:422993,execs:56952,op:havoc,rep:6[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000204,src:000005,time:450488,execs:56998,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000205,src:000005,time:485698,execs:57050,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000206,src:000005,time:519433,execs:57079,op:havoc,rep:6[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000207,src:000005,time:538664,execs:57109,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/fast-2/queue/id:000208,src:000005,time:700289,execs:57207,op:havoc,rep:14[0m
+[?25h[1;91m
+
++++ Testing aborted programmatically +++
+[0m[1;93m[!] [0mTime limit was reached
+[1;94m[*] [0mStatistics: 191 new corpus items found, 21.51% coverage achieved, 51 crashes saved, 14 timeouts saved, total runtime 0 days, 0 hrs, 12 min, 4 sec[0m
+[1;94m[*] [0mWriting artifacts/alloc_threads/fast-2/fastresume.bin ...[0m
+[1;92m[+] [0mfastresume.bin successfully written with 58169 bytes.[0m
+[1;92m[+] [0mWe're done here. Have a nice day!
+[0m

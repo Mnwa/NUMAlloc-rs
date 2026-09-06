@@ -170,6 +170,92 @@ Axum HTTP server benchmark (4 threads, 100 connections, 10s, higher is better):
 
 Run benchmarks yourself with `cargo bench` or `cd examples/axum-bench && bash bench.sh`.
 
+## Correctness and validation
+
+NUMAlloc keeps no per-block metadata, so its correctness rests on a few
+arithmetic and ownership arguments.  They are stated here informally and
+each one is enforced by tests, the invariant checker, or Miri.
+
+### Alignment (small path)
+A request with size `s` and alignment `a` (a power of two) is served from
+class `c` with object size `S = 2^k ≥ max(s, a)`.  Bags are carved from a
+region whose base is aligned to 256 KiB (`MIN_REGION_SIZE`) and every bag is
+placed at an address that is a multiple of the bag size `B ≥ S`, so bag
+addresses are multiples of `S`.  Objects sit at `bag + i·S`, hence every
+object address is a multiple of `S ≥ a`.  Checked for every size in the
+boundary matrix and on every fuzzed allocation (`tests/boundaries.rs`,
+`tests/common/mod.rs`).
+
+### Alignment and containment (large path)
+For `size > 256 KiB` or `align > 256 KiB` a private mapping of
+`round_page(header + (align−1) + size)` bytes is created (all additions are
+checked; sizes whose page-rounded total would exceed `isize::MAX` return
+null).  The payload is `align_up(raw + header, align)`, so
+`payload − header ≥ raw` (the header fits in front) and
+`payload + size ≤ raw + mapped` (the payload fits behind).  The mapping's
+real extent, not the request, is recorded in the header so a close-size
+cache hit is unmapped with its true length.
+
+### O(1) origin lookup
+The heap is one contiguous mapping; node `i` owns
+`[base + i·R, base + (i+1)·R)`.  For a pointer `p`,
+`node = (p − base) / R` is valid iff `p − base < num_nodes·R`
+(computed with wrapping subtraction, so pointers below `base` fall out as
+"not owned").  Pointers outside the mapping are therefore never
+misattributed to a node, and every mmap fallback is recognised as such on
+free.
+
+### Freelist ownership and the Treiber stack
+Intrusive `next` links live inside free blocks.  The invariant is: a
+block's `next` is only read by the thread that owns it.  Thread freelists
+are single-owner.  Shared per-node stacks are pushed with a CAS on a
+tagged head (48-bit pointer + 16-bit generation, so ABA between a load
+and the CAS is detected) and are consumed only by `take_all`, which detaches
+the whole chain with one CAS and never reads a link before ownership is
+exclusive.  Refill walks at most 64 blocks and parks the rest as a
+thread-owned spare chain, so refill cost is bounded and no link of a block
+that another thread might already have handed to user code is ever read.
+This is why the multi-threaded suites are clean under ThreadSanitizer and
+Miri's data-race detector.
+
+### No block is in two places
+`validate_internal_state()` (`src/validate.rs`) rebuilds an 8-byte-granule
+occupancy bitmap per node from every node stack, the calling thread's
+freelists and spare chains, and asserts that: every free block lies below
+its region's bump pointer and is aligned to its class; no two free blocks
+overlap (which catches double frees and cross-class confusion); every
+32 KiB bag granule belongs to one class; thread freelist counts, tails and
+terminators agree; and the large cache's slot/byte accounting is exact with
+disjoint, page-aligned, out-of-region entries.  The fuzz harnesses run it
+mid-sequence and after every input; the deterministic suites run it after
+every pattern.
+
+### Contents are preserved
+The state-machine model (`tests/common/mod.rs`) fills every live
+allocation with a byte pattern derived from `(slot, generation, offset)`
+and re-verifies it before any free, realloc, cross-thread transfer or
+check-point.  Any write that lands in another live object, any lost
+`realloc` prefix, and any non-zero byte from `alloc_zeroed` is detected.
+The same operation streams are replayed against `std::alloc::System` as a
+behavioural reference (success/failure, live sets, contents; never
+addresses).
+
+### Evidence
+
+| Check | Scope | Result (2026-09-06, rustc 1.98.1, x86_64 Linux) |
+|---|---|---|
+| `cargo test` | 45 unit + 35 integration tests (boundaries, stress, model, differential, concurrent, regressions) | pass |
+| Fuzz corpus replay | 14 + 4 seeds, regression inputs | pass |
+| Miri (`scripts/miri.sh`) | all suites, Stacked Borrows, leak check | pass |
+| AddressSanitizer | all suites | clean |
+| ThreadSanitizer (`-Zbuild-std`) | all suites incl. 8-thread transfer/contention tests | clean |
+| AFL++ `alloc_ops` | 6 + 8 workers, 10 + 15 min | 3.5 M execs, 728 queue entries, 97 % stability, 0 crashes, 0 hangs |
+| AFL++ `alloc_threads` | 6 + 8 workers, 10 + 15 min | 1.7 M execs, 558 queue entries, 44 % stability (scheduling), 0 crashes, 0 hangs |
+
+Bugs found and fixed by this setup are listed in `docs/testing.md`; each
+has a regression test in `tests/` (and, where applicable, an input in
+`fuzz/afl/regressions/`).  How to run everything: `docs/testing.md`.
+
 ## Design Principles
 
 - **Hot path = zero synchronization.** Per-thread freelists are single-owner, no atomics, no syscalls.
@@ -200,6 +286,10 @@ cargo fmt
 cargo clippy -- -D warnings
 cargo test
 ```
+
+Deeper validation (state-machine model tests, Miri, sanitizers, AFL++ fuzz
+harnesses, invariant checker) is described in [`docs/testing.md`](docs/testing.md);
+`scripts/test.sh` runs the full CI gate locally.
 
 ## License
 

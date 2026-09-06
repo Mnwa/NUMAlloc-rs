@@ -1,4 +1,5 @@
 /target
 .idea
 .claude
-examples/*/target
+examples/*/targetfuzz/afl/target
+fuzz/afl/artifacts

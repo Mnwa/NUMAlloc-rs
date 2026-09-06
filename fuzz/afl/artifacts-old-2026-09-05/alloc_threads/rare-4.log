@@ -1,0 +1,376 @@
+[1;92m[+] [0mEnabled environment variable AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_NO_AFFINITY with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_NO_UI with value 1[0m
+[1;92m[+] [0mEnabled environment variable AFL_SKIP_CPUFREQ with value 1[0m
+[1;94m[*] [0mSpinning up the fork server...[0m
+[1;92m[+] [0mAll right - new fork server model v1 is up.[0m
+[1;94m[*] [0mTarget map size: 4771[0m
+[1;94m[*] [0mUsing SHARED MEMORY FUZZING feature.[0m
+[0;36mafl-fuzz++4.40c[0m based on afl by Michal Zalewski and a large online community
+[1;94m[*] [0mDisabling cmplog again because of '-c -'.[0m
+[1;92m[+] [0mAFL++ is maintained by Marc "van Hauser" Heuse, Dominik Maier, Andrea Fioraldi and Heiko "hexcoder" Eißfeldt[0m
+[1;92m[+] [0mAFL++ is open source, get it at https://github.com/AFLplusplus/AFLplusplus[0m
+[1;92m[+] [0mNOTE: AFL++ >= v3 has changed defaults and behaviours - see README.md[0m
+[1;94m[*] [0mGetting to work...[0m
+[1;92m[+] [0mUsing rare edge focus power schedule (RARE)[0m
+[1;92m[+] [0mEnabled testcache with 50 MB[0m
+[1;92m[+] [0mGenerating fuzz data with a length of min=1 max=1048576[0m
+[1;92m[+] [0mFrameShift status: enabled (10% overhead configured)[0m
+[1;94m[*] [0mChecking core_pattern...[0m
+
+[1;91m[-] [0mYour system is configured to send core dump notifications to an
+    external utility. This will cause issues: there will be an extended delay
+    between stumbling upon a crash and having this information relayed to the
+    fuzzer via the standard waitpid() API.
+    If you're just experimenting, set 'AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1'.
+
+    To avoid having crashes misinterpreted as timeouts, please 
+    temporarily modify /proc/sys/kernel/core_pattern, like so:
+
+    echo core | sudo tee /proc/sys/kernel/core_pattern
+[1;92m[+] [0mDisabling the UI because AFL_NO_UI is set.[0m
+[1;92m[+] [0mYou have 24 CPU cores and 12 runnable tasks (utilization: 50%).[0m
+[1;92m[+] [0mTry parallel jobs - see docs/fuzzing_in_depth.md#c-using-multiple-cores[0m
+[1;94m[*] [0mSetting up output directories...[0m
+[1;93m[!] [1;97mWARNING: [0mNot binding to a CPU core (AFL_NO_AFFINITY set).[0m
+[1;94m[*] [0mValidating target binary...[0m
+[1;92m[+] [0m[1;95mPersistent mode binary detected.[0m
+[1;92m[+] [0m[1;95mDeferred forkserver binary detected.[0m
+[1;94m[*] [0mScanning 'corpus/alloc_threads'...[0m
+[1;94m[*] [0mCreating hard links for all input files...[0m
+[1;92m[+] [0mLoaded a total of 12 seeds.[0m
+[1;94m[*] [0mNo auto-generated dictionary tokens to reuse.[0m
+[1;94m[*] [0mAttempting dry run with 'id:000000,time:0,execs:0,orig:basic.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000000,time:0,execs:0,orig:basic.bin[0m
+[1;90m    len = 40, map size = 728, exec speed = 749 us, hash = 295c67e668df11fa
+[0m[1;94m[*] [0mAttempting dry run with 'id:000001,time:0,execs:0,orig:big_align.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000001,time:0,execs:0,orig:big_align.bin[0m
+[1;90m    len = 112, map size = 804, exec speed = 1073 us, hash = e2465a556ba3314f
+[0m[1;94m[*] [0mAttempting dry run with 'id:000002,time:0,execs:0,orig:churn.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000002,time:0,execs:0,orig:churn.bin[0m
+[1;90m    len = 4800, map size = 705, exec speed = 1829 us, hash = af63507e7b7a3fb0
+[0m[1;94m[*] [0mAttempting dry run with 'id:000003,time:0,execs:0,orig:class_edges.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000003,time:0,execs:0,orig:class_edges.bin[0m
+[1;90m    len = 768, map size = 805, exec speed = 2160 us, hash = d47529e774cfed60
+[0m[1;94m[*] [0mAttempting dry run with 'id:000004,time:0,execs:0,orig:classes.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000004,time:0,execs:0,orig:classes.bin[0m
+[1;90m    len = 528, map size = 812, exec speed = 2397 us, hash = 65912e8922372188
+[0m[1;94m[*] [0mAttempting dry run with 'id:000005,time:0,execs:0,orig:exhaust_realloc.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000005,time:0,execs:0,orig:exhaust_realloc.bin[0m
+[1;90m    len = 3072, map size = 729, exec speed = 65653 us, hash = ea712b8da85f07bd
+[0m[1;94m[*] [0mAttempting dry run with 'id:000006,time:0,execs:0,orig:exhaust_small.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000006,time:0,execs:0,orig:exhaust_small.bin[0m
+[1;90m    len = 5120, map size = 719, exec speed = 26915 us, hash = ba059e4e1023cec7
+[0m[1;94m[*] [0mAttempting dry run with 'id:000007,time:0,execs:0,orig:large_cache.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000007,time:0,execs:0,orig:large_cache.bin[0m
+[1;90m    len = 256, map size = 805, exec speed = 5211 us, hash = 802e27cf4f9e3c4a
+[0m[1;94m[*] [0mAttempting dry run with 'id:000008,time:0,execs:0,orig:realloc_chain.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000008,time:0,execs:0,orig:realloc_chain.bin[0m
+[1;90m    len = 64, map size = 857, exec speed = 893 us, hash = 8ca8a757c9856c30
+[0m[1;94m[*] [0mAttempting dry run with 'id:000009,time:0,execs:0,orig:zeroed_close_size.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000009,time:0,execs:0,orig:zeroed_close_size.bin[0m
+[1;90m    len = 32, map size = 794, exec speed = 1065 us, hash = 6a04064f764bedec
+[0m[1;94m[*] [0mAttempting dry run with 'id:000010,time:0,execs:0,orig:zeroed_large.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000010,time:0,execs:0,orig:zeroed_large.bin[0m
+[1;90m    len = 32, map size = 794, exec speed = 950 us, hash = 7cc8c135af71d48c
+[0m[1;93m[!] [1;97mWARNING: [0mNo new instrumentation output, test case may be useless.[0m
+[1;94m[*] [0mAttempting dry run with 'id:000011,time:0,execs:0,orig:zeroed_small.bin'...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000011,time:0,execs:0,orig:zeroed_small.bin[0m
+[1;90m    len = 32, map size = 717, exec speed = 677 us, hash = e961972d87d1e6cc
+[0m[1;92m[+] [0mAll test cases processed.[0m
+[1;93m[!] [1;97mWARNING: [0m[1;91mSome test cases look useless. Consider using a smaller set.[0m
+[1;92m[+] [0mHere are some useful stats:
+
+[1;90m    Test case count : [0m8 favored, 12 variable, 0 ignored, 12 total
+[1;90m       Bitmap range : [0m705 to 857 bits (average: 772.42 bits)
+[1;90m        Exec timing : [0m677 to 65.7k us (average: 9131 us)
+[0m
+[1;94m[*] [0m-t option specified. We'll use an exec timeout of 5000 ms.[0m
+[1;92m[+] [0mAll set and ready to roll![0m
+[1;94m[*] [0mEntering queue cycle 1
+[0m
+[1;94m[*] [0mFuzzing test case #0 (12 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=100, weight=1, favorite=1, was_fuzzed=0, exec_us=749, hits=0, map=728, ascii=0, run_time=0:00:00:00, cvg=19.41%) FS (t=0:00:00:00 (0.00%), st=0, avg=0 ms, found=0/0)...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000012,src:000000,time:7,execs:155,op:(null),pos:0,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000013,src:000000,time:17,execs:168,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000014,src:000000,time:31,execs:186,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000015,src:000000,time:44,execs:203,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000016,src:000000,time:59,execs:217,op:(null),pos:0,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000017,src:000000,time:70,execs:230,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000018,src:000000,time:81,execs:246,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000019,src:000000,time:96,execs:266,op:(null),pos:0,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000020,src:000000,time:106,execs:279,op:(null),pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000021,src:000000,time:164,execs:353,op:quick,pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000022,src:000000,time:174,execs:366,op:quick,pos:1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000023,src:000000,time:186,execs:381,op:quick,pos:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000024,src:000000,time:197,execs:394,op:quick,pos:5,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000025,src:000000,time:208,execs:408,op:quick,pos:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000026,src:000000,time:232,execs:438,op:quick,pos:25,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000027,src:000000,time:254,execs:466,op:flip1,pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000028,src:000000,time:265,execs:479,op:flip1,pos:0[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000029,src:000000,time:281,execs:499,op:flip1,pos:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000030,src:000000,time:294,execs:513,op:flip1,pos:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000031,src:000000,time:317,execs:541,op:flip1,pos:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000032,src:000000,time:355,execs:583,op:flip2,pos:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000033,src:000000,time:405,execs:641,op:flip4,pos:0,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000034,src:000000,time:462,execs:710,op:flip32,pos:7,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000035,src:000000,time:1161,execs:1563,op:arith32,pos:7,val:be:-1,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000036,src:000000,time:1195,execs:1602,op:arith32,pos:7,val:be:-28[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000037,src:000000,time:1210,execs:1619,op:arith32,pos:7,val:be:-33,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000038,src:000000,time:1395,execs:1836,op:int32,pos:1,val:be:-128[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000039,src:000000,time:1443,execs:1892,op:int32,pos:1,val:+2147483647[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000040,src:000000,time:1605,execs:2072,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000041,src:000000,time:1621,execs:2086,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000042,src:000000,time:1634,execs:2099,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000043,src:000000,time:1648,execs:2112,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000044,src:000000,time:1664,execs:2126,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000045,src:000000,time:1676,execs:2140,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000046,src:000000,time:1689,execs:2153,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000047,src:000000,time:1702,execs:2166,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000048,src:000000,time:1716,execs:2180,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000049,src:000000,time:1730,execs:2193,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000050,src:000000,time:1743,execs:2207,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000051,src:000000,time:1756,execs:2221,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000052,src:000000,time:1769,execs:2234,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000053,src:000000,time:1789,execs:2250,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000054,src:000000,time:1806,execs:2264,op:havoc,rep:8,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000055,src:000000,time:1827,execs:2281,op:havoc,rep:10,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000056,src:000000,time:1840,execs:2296,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000057,src:000000,time:1853,execs:2311,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000058,src:000000,time:1865,execs:2325,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000059,src:000000,time:1878,execs:2339,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000060,src:000000,time:1895,execs:2354,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000061,src:000000,time:1909,execs:2367,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000062,src:000000,time:1924,execs:2381,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000063,src:000000,time:1939,execs:2395,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000064,src:000000,time:1968,execs:2411,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000065,src:000000,time:1986,execs:2427,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000066,src:000000,time:2011,execs:2441,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000067,src:000000,time:2024,execs:2454,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000068,src:000000,time:2047,execs:2474,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000069,src:000000,time:2090,execs:2490,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000070,src:000000,time:2102,execs:2503,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000071,src:000000,time:2116,execs:2518,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000072,src:000000,time:2145,execs:2549,op:havoc,rep:7,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000073,src:000000,time:2163,execs:2567,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000074,src:000000,time:2181,execs:2582,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000075,src:000000,time:2198,execs:2600,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000076,src:000000,time:2220,execs:2614,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000077,src:000000,time:2232,execs:2627,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000078,src:000000,time:2249,execs:2640,op:havoc,rep:7,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000079,src:000000,time:2265,execs:2656,op:havoc,rep:5,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000080,src:000000,time:2290,execs:2676,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000081,src:000000,time:2307,execs:2692,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000082,src:000000,time:2327,execs:2708,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000083,src:000000,time:2349,execs:2724,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000085,src:000000,time:2413,execs:2756,op:havoc,rep:11,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000086,src:000000,time:2438,execs:2780,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000087,src:000000,time:2470,execs:2814,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000088,src:000000,time:2481,execs:2827,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000089,src:000000,time:2493,execs:2841,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000090,src:000000,time:2515,execs:2860,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000091,src:000000,time:2576,execs:2888,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000092,src:000000,time:2595,execs:2905,op:havoc,rep:12,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000093,src:000000,time:2622,execs:2920,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000095,src:000000,time:2685,execs:2978,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000096,src:000000,time:2706,execs:2997,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000097,src:000000,time:2741,execs:3031,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000098,src:000000,time:2781,execs:3058,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000099,src:000000,time:2807,execs:3082,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000100,src:000000,time:2836,execs:3110,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000101,src:000000,time:2916,execs:3174,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000102,src:000000,time:3006,execs:3188,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000103,src:000000,time:3052,execs:3206,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000104,src:000000,time:3079,execs:3219,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000105,src:000000,time:3162,execs:3248,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000106,src:000000,time:3220,execs:3270,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000107,src:000000,time:3488,execs:3288,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000108,src:000000,time:3526,execs:3322,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000109,src:000000,time:3542,execs:3336,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000110,src:000000,time:3599,execs:3377,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000111,src:000000,time:3646,execs:3415,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000112,src:000000,time:3705,execs:3464,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000113,src:000000,time:3765,execs:3509,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000114,src:000000,time:3836,execs:3553,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000115,src:000000,time:3866,execs:3572,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000116,src:000000,time:3923,execs:3603,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000117,src:000000,time:4127,execs:3643,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000118,src:000000,time:4368,execs:3730,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000119,src:000000,time:4529,execs:3830,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000120,src:000000,time:4752,execs:3844,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000121,src:000000,time:4870,execs:3942,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000122,src:000000,time:4890,execs:3961,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000123,src:000000,time:4944,execs:4001,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000124,src:000000,time:4990,execs:4046,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000125,src:000000,time:5008,execs:4063,op:havoc,rep:15,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000126,src:000000,time:5102,execs:4131,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000127,src:000000,time:5297,execs:4276,op:havoc,rep:7,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000128,src:000000,time:5538,execs:4466,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000129,src:000000,time:5750,execs:4513,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000130,src:000000,time:6369,execs:4838,op:havoc,rep:15,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000131,src:000000,time:6406,execs:4867,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000132,src:000000,time:6467,execs:4928,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000133,src:000000,time:6801,execs:5214,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000134,src:000000,time:7020,execs:5377,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000135,src:000000,time:7188,execs:5529,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000136,src:000000,time:7398,execs:5715,op:havoc,rep:5,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000137,src:000000,time:7444,execs:5759,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000138,src:000000,time:7511,execs:5810,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000139,src:000000,time:7582,execs:5872,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000140,src:000000,time:7845,execs:6082,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000141,src:000000,time:8310,execs:6446,op:havoc,rep:15,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000142,src:000000,time:8762,execs:6683,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000143,src:000000,time:8985,execs:6863,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000144,src:000000,time:9174,execs:7029,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000145,src:000000,time:9734,execs:7499,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000146,src:000000,time:10099,execs:7755,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000147,src:000000,time:10707,execs:8022,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000148,src:000000,time:11031,execs:8292,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000149,src:000000,time:11893,execs:8933,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000150,src:000000,time:12222,execs:9092,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000151,src:000000,time:12589,execs:9218,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000152,src:000000,time:13040,execs:9534,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000153,src:000000,time:13460,execs:9760,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000154,src:000000,time:14205,execs:10364,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000155,src:000000,time:15400,execs:11294,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000156,src:000000,time:15532,execs:11396,op:havoc,rep:4[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000158,src:000000,time:16217,execs:11812,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000159,src:000000,time:16819,execs:12279,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000160,src:000000,time:18113,execs:13148,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000161,src:000000,time:19385,execs:13902,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000162,src:000000,time:20796,execs:14877,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000163,src:000000,time:21281,execs:15145,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000164,src:000000,time:22514,execs:15830,op:havoc,rep:12,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000165,src:000000,time:24567,execs:17170,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000166,src:000000,time:25904,execs:17849,op:havoc,rep:16,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000167,src:000000,time:26135,execs:17975,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000168,src:000000,time:29270,execs:20081,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000169,src:000000,time:29580,execs:20224,op:havoc,rep:6[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000170,src:000000,time:30129,execs:20630,op:havoc,rep:15,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000171,src:000000,time:30655,execs:20941,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000172,src:000000,time:31141,execs:21278,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000173,src:000000,time:32773,execs:22389,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000174,src:000000,time:33523,execs:22863,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000175,src:000000,time:33702,execs:22930,op:havoc,rep:5,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000176,src:000000,time:33903,execs:23080,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000177,src:000000,time:34832,execs:23709,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000178,src:000000,time:38981,execs:26307,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000179,src:000000,time:41076,execs:27597,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000180,src:000000,time:41431,execs:27834,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000181,src:000000,time:42779,execs:28711,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000182,src:000000,time:42871,execs:28755,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000183,src:000000,time:43515,execs:29089,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000184,src:000000,time:44520,execs:29629,op:havoc,rep:9[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000185,src:000000,time:44731,execs:29730,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000186,src:000000,time:46184,execs:30678,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000187,src:000000,time:46237,execs:30716,op:havoc,rep:12[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000188,src:000000,time:55032,execs:36358,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000189,src:000000,time:56345,execs:36939,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000190,src:000000,time:57109,execs:37296,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000191,src:000000,time:61090,execs:39709,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000192,src:000000,time:65520,execs:42440,op:havoc,rep:15,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000193,src:000000,time:69730,execs:45173,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000194,src:000000,time:73233,execs:47344,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000195,src:000000,time:80463,execs:51964,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000196,src:000000,time:81120,execs:52223,op:havoc,rep:13[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000197,src:000000,time:84093,execs:54182,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000198,sync:main,src:000005[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000199,sync:main,src:000006[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000200,sync:main,src:000192[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000201,sync:main,src:000194[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000202,sync:main,src:000195[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000203,sync:main,src:000196[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000204,sync:main,src:000197[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000205,sync:main,src:000199[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000206,sync:main,src:000202[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000207,sync:main,src:000203[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000208,sync:main,src:000204[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000209,sync:main,src:000205[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000210,sync:main,src:000208[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000211,sync:main,src:000209[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000212,sync:main,src:000210[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000213,sync:main,src:000211[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000214,sync:main,src:000212[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000215,sync:main,src:000213[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000216,sync:main,src:000214[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000217,sync:main,src:000215[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000218,sync:main,src:000216,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000219,sync:main,src:000217[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000220,sync:main,src:000218,+cov[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000221,sync:main,src:000219[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000222,sync:main,src:000220[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000223,sync:main,src:000221[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000224,sync:main,src:000222[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000225,sync:main,src:000223[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000226,sync:main,src:000224[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000227,sync:main,src:000225[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000228,sync:main,src:000226[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000229,sync:main,src:000227[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000230,sync:main,src:000228[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000231,sync:main,src:000229[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000232,sync:main,src:000230[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000233,sync:main,src:000231[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000234,sync:main,src:000232[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000235,sync:main,src:000233[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000236,sync:main,src:000234[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000237,sync:main,src:000236[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000238,sync:main,src:000237[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000239,sync:main,src:000239[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000240,sync:main,src:000240[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000241,sync:main,src:000241[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000242,sync:main,src:000242[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000243,sync:main,src:000243[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000244,sync:main,src:000244[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000245,sync:main,src:000245[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000246,sync:main,src:000246[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000247,sync:main,src:000247[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000248,sync:main,src:000248[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000249,sync:main,src:000249[0m
+[1;94m[*] [0mFuzzing test case #3 (250 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=100, weight=1, favorite=1, was_fuzzed=0, exec_us=2160, hits=0, map=805, ascii=0, run_time=0:00:01:43, cvg=21.80%) FS (t=0:00:00:00 (0.15%), st=90, avg=156 ms, found=1/1)...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000250,src:000003,time:106890,execs:56969,op:inf,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000251,src:000003,time:109777,execs:57775,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000252,src:000003,time:109851,execs:57797,op:havoc,rep:8[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000253,src:000003,time:109975,execs:57819,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000254,src:000003,time:110067,execs:57832,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000255,src:000003,time:110418,execs:57919,op:havoc,rep:10[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000256,src:000003,time:110749,execs:57991,op:havoc,rep:3[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000257,src:000003,time:112763,execs:58466,op:havoc,rep:11[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000258,src:000003,time:114288,execs:58824,op:havoc,rep:7[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000259,src:000003,time:115245,execs:59043,op:havoc,rep:6[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000260,src:000003,time:115844,execs:59196,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000261,src:000003,time:116343,execs:59310,op:havoc,rep:15[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000262,src:000003,time:121290,execs:60574,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000263,src:000003,time:125788,execs:61609,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000264,src:000003,time:128707,execs:62290,op:havoc,rep:16[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000265,src:000003,time:136117,execs:64189,op:havoc,rep:5[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000266,src:000003,time:149143,execs:67466,op:havoc,rep:14[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000267,src:000003,time:156420,execs:69263,op:havoc,rep:10[0m
+[1;94m[*] [0mFuzzing test case #11 (268 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=6400, weight=1, favorite=1, was_fuzzed=0, exec_us=677, hits=0, map=717, ascii=0, run_time=0:00:02:42, cvg=21.80%) FS (t=0:00:00:02 (1.33%), st=687, avg=1079 ms, found=1/2)...[0m
+[1;94m[*] [0mFuzzing test case #78 (268 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=119, weight=1, favorite=1, was_fuzzed=0, exec_us=891, hits=1, map=810, ascii=0, run_time=0:00:02:52, cvg=21.80%) FS (t=0:00:00:02 (1.27%), st=726, avg=732 ms, found=1/3)...[0m
+[1;94m[*] [0mFuzzing test case #178 (268 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=249, weight=1, favorite=1, was_fuzzed=0, exec_us=8286, hits=1, map=859, ascii=0, run_time=0:00:02:52, cvg=21.80%) FS (t=0:00:00:02 (1.32%), st=801, avg=569 ms, found=2/4)...[0m
+[1;94m[*] [0mFuzzing test case #87 (268 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=179, weight=1, favorite=1, was_fuzzed=0, exec_us=812, hits=1, map=734, ascii=0, run_time=0:00:02:55, cvg=21.80%) FS (t=0:00:00:02 (1.42%), st=826, avg=498 ms, found=2/5)...[0m
+[1;94m[*] [0mFuzzing test case #8 (268 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=800, weight=1, favorite=1, was_fuzzed=0, exec_us=893, hits=0, map=857, ascii=0, run_time=0:00:02:55, cvg=21.80%) FS (t=0:00:00:02 (1.43%), st=849, avg=419 ms, found=2/6)...[0m
+[1;94m[*] [0mFuzzing test case #72 (268 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=129, weight=1, favorite=1, was_fuzzed=0, exec_us=1017, hits=1, map=836, ascii=0, run_time=0:00:02:57, cvg=21.80%) FS (t=0:00:00:02 (1.47%), st=926, avg=373 ms, found=2/7)...[0m
+[1;94m[*] [0mFuzzing test case #10 (268 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=1040, weight=1, favorite=1, was_fuzzed=0, exec_us=950, hits=0, map=794, ascii=0, run_time=0:00:02:57, cvg=21.80%) FS (t=0:00:00:02 (1.52%), st=977, avg=336 ms, found=2/8)...[0m
+[1;94m[*] [0mFuzzing test case #243 (268 total, 0 crashes saved[0m, state: started :-), mode=explore, perf_score=149, weight=1, favorite=1, was_fuzzed=0, exec_us=26063, hits=1, map=876, ascii=0, run_time=0:00:02:59, cvg=21.80%) FS (t=0:00:00:02 (1.52%), st=1001, avg=303 ms, found=2/9)...[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000268,src:000243,time:221829,execs:81523,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000269,src:000243,time:222612,execs:81549,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000270,src:000243,time:232629,execs:81910,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000271,src:000243,time:240440,execs:82184,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000272,src:000243,time:248671,execs:82475,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000273,src:000243,time:249784,execs:82509,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000274,src:000243,time:253592,execs:82640,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000275,src:000243,time:272027,execs:83304,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000276,src:000243,time:273229,execs:83346,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000277,src:000243,time:295803,execs:84183,op:havoc,rep:2[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000278,src:000243,time:413662,execs:88424,op:havoc,rep:1[0m
+[1;93m[!] [1;97mWARNING: [0minstability detected during calibration: artifacts/alloc_threads/rare-4/queue/id:000279,src:000243,time:462990,execs:90286,op:havoc,rep:2[0m
+[1;94m[*] [0mFuzzing test case #6 (280 total, 0 crashes saved[0m, state: in progress, mode=explore, perf_score=120, weight=1, favorite=1, was_fuzzed=0, exec_us=26915, hits=0, map=719, ascii=0, run_time=0:00:08:03, cvg=21.80%) FS (t=0:00:00:04 (0.98%), st=1076, avg=474 ms, found=2/10)...[0m
+[?25h[1;91m
+
++++ Testing aborted programmatically +++
+[0m[1;93m[!] [0mTime limit was reached
+[1;94m[*] [0mStatistics: 216 new corpus items found, 21.80% coverage achieved, 0 crashes saved, 0 timeouts saved, total runtime 0 days, 0 hrs, 8 min, 18 sec[0m
+[1;94m[*] [0mWriting artifacts/alloc_threads/rare-4/fastresume.bin ...[0m
+[1;92m[+] [0mfastresume.bin successfully written with 58968 bytes.[0m
+[1;92m[+] [0mWe're done here. Have a nice day!
+[0m

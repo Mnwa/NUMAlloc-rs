@@ -1,0 +1,10 @@
+# environment variables:
+AFL_CUSTOM_INFO_PROGRAM=target/release/alloc_threads
+AFL_CUSTOM_INFO_PROGRAM_ARGV=
+AFL_CUSTOM_INFO_OUT=artifacts/alloc_threads/coe-5
+AFL_I_DONT_CARE_ABOUT_MISSING_CRASHES=1
+AFL_NO_AFFINITY=1
+AFL_NO_UI=1
+AFL_SKIP_CPUFREQ=1
+# command line:
+'/home/mnwa/.local/share/afl.rs/rustc-1.98.1-48a229c/afl.rs-0.18.2/afl/bin/afl-fuzz' '-c0' '-i' 'corpus/alloc_threads' '-o' 'artifacts/alloc_threads' '-t' '5000' '-V' '720' '-c' '-' '-S' 'coe-5' '-p' 'coe' '--' 'target/release/alloc_threads'

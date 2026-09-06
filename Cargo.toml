@@ -12,10 +12,20 @@ readme = "README.md"
 keywords = ["allocator", "numa", "memory", "performance", "lock-free"]
 categories = ["memory-management", "concurrency"]
 
+[features]
+# Exposes `NumaAlloc::with_config`, `NumaAlloc::validate_internal_state` and a
+# few metadata accessors for tests and fuzz harnesses.  Never enable this in
+# production builds: it adds fields to `NumaAlloc` and public unsafe entry
+# points that assume a quiescent allocator.
+internal-testing = []
+
 [dependencies]
 libc = "0.2"
 
 [dev-dependencies]
+# Self dev-dependency: enables the internal-testing hooks for this crate's
+# own tests and benches without affecting downstream builds.
+numalloc = { path = ".", features = ["internal-testing"] }
 criterion = { version = "0.8", features = ["html_reports"] }
 mimalloc = { version = "0.1", default-features = false }
 tikv-jemallocator = "0.6"

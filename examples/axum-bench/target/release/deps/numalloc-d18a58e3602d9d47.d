@@ -1,0 +1,14 @@
+/home/mnwa/NUMAlloc-rs/examples/axum-bench/target/release/deps/numalloc-d18a58e3602d9d47.d: /home/mnwa/NUMAlloc-rs/src/lib.rs /home/mnwa/NUMAlloc-rs/src/allocator.rs /home/mnwa/NUMAlloc-rs/src/freelist.rs /home/mnwa/NUMAlloc-rs/src/heap.rs /home/mnwa/NUMAlloc-rs/src/node_heap.rs /home/mnwa/NUMAlloc-rs/src/platform.rs /home/mnwa/NUMAlloc-rs/src/size_class.rs /home/mnwa/NUMAlloc-rs/src/thread_heap.rs
+
+/home/mnwa/NUMAlloc-rs/examples/axum-bench/target/release/deps/libnumalloc-d18a58e3602d9d47.rlib: /home/mnwa/NUMAlloc-rs/src/lib.rs /home/mnwa/NUMAlloc-rs/src/allocator.rs /home/mnwa/NUMAlloc-rs/src/freelist.rs /home/mnwa/NUMAlloc-rs/src/heap.rs /home/mnwa/NUMAlloc-rs/src/node_heap.rs /home/mnwa/NUMAlloc-rs/src/platform.rs /home/mnwa/NUMAlloc-rs/src/size_class.rs /home/mnwa/NUMAlloc-rs/src/thread_heap.rs
+
+/home/mnwa/NUMAlloc-rs/examples/axum-bench/target/release/deps/libnumalloc-d18a58e3602d9d47.rmeta: /home/mnwa/NUMAlloc-rs/src/lib.rs /home/mnwa/NUMAlloc-rs/src/allocator.rs /home/mnwa/NUMAlloc-rs/src/freelist.rs /home/mnwa/NUMAlloc-rs/src/heap.rs /home/mnwa/NUMAlloc-rs/src/node_heap.rs /home/mnwa/NUMAlloc-rs/src/platform.rs /home/mnwa/NUMAlloc-rs/src/size_class.rs /home/mnwa/NUMAlloc-rs/src/thread_heap.rs
+
+/home/mnwa/NUMAlloc-rs/src/lib.rs:
+/home/mnwa/NUMAlloc-rs/src/allocator.rs:
+/home/mnwa/NUMAlloc-rs/src/freelist.rs:
+/home/mnwa/NUMAlloc-rs/src/heap.rs:
+/home/mnwa/NUMAlloc-rs/src/node_heap.rs:
+/home/mnwa/NUMAlloc-rs/src/platform.rs:
+/home/mnwa/NUMAlloc-rs/src/size_class.rs:
+/home/mnwa/NUMAlloc-rs/src/thread_heap.rs:

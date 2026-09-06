@@ -1,0 +1,35 @@
+[package]
+name = "numalloc-afl"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "AFL++ fuzz harnesses for the numalloc allocator (not published)"
+
+# Standalone workspace so the `afl` dependency never enters the main crate's
+# lockfile or dependency graph.
+[workspace]
+
+[dependencies]
+afl = "0.18"
+numalloc = { path = "../..", features = ["internal-testing"] }
+
+[[bin]]
+name = "alloc_ops"
+path = "src/bin/alloc_ops.rs"
+test = false
+
+[[bin]]
+name = "alloc_threads"
+path = "src/bin/alloc_threads.rs"
+test = false
+
+[[bin]]
+name = "gen_corpus"
+path = "src/bin/gen_corpus.rs"
+test = false
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(fuzzing)'] }
+
+[profile.release]
+debug = 1

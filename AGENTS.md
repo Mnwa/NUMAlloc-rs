@@ -41,7 +41,7 @@ A single contiguous virtual region is mapped at init (`128 MB * num_nodes`). Eac
 
 1. Look up size class index (16 power-of-2 classes from 8 B to 256 KB).
 2. Try per-thread freelist → return if hit.
-3. Try per-node Treiber stack → pop up to `REFILL_BATCH` (64) objects, chain-insert into thread freelist → return one.
+3. Try per-node Treiber stack → `take_all` detaches the whole chain in one CAS, chain-insert into thread freelist, drain anything beyond `max_thread_cache(class)` back to the node stack → return one.
 4. Bump-allocate a fresh bag from the node region (32 KB for classes ≤ 16 KB, object-sized for larger) → carve objects → push to per-thread freelist → return one.
 5. If region exhausted → fall back to mmap (large object path).
 
@@ -69,7 +69,7 @@ Lock-free CAS scales linearly with thread count. No priority inversion, no convo
 Avoids bootstrap recursion: the NUMA allocator cannot allocate from itself during initialization.
 
 ### Why batch drain/refill
-Drain uses `push_chain` (single CAS for entire chain). Refill pops individually but chain-inserts into the thread freelist in O(1). Keeps hot objects in thread-local cache.
+Drain uses `push_chain` (single CAS for entire chain). Refill detaches the whole node chain with `take_all` (single CAS) and walks it once: a per-block `pop` would have to read `next` of a block another thread may already have handed to user code (a data race), and the generation tag only protects the CAS, not that read. Keeps hot objects in thread-local cache.
 
 ### Why dynamic per-class cache thresholds
 Small objects (8–64 B) cache up to 2048 items; large objects (≥ 16 KB) cache 64. This avoids excessive drain/refill cycles in bulk allocation patterns while bounding memory overhead for large classes.
@@ -94,8 +94,22 @@ Distributes memory pressure evenly across NUMA nodes. Avoids hotspotting on node
 - Do not use `#[allow(clippy::...)]` unless the lint is a false positive and the reason is documented in a comment.
 
 ### `cargo test`
-- All tests must pass before merge: `cargo test`.
+- All tests must pass before merge: `cargo test` (or `scripts/test.sh`, which also replays the fuzz corpus).
 - Tests cover: all 16 size classes, alignment, reuse, bulk allocation, multi-threaded allocation, cross-thread deallocation, realloc, alloc_zeroed, and concurrent stress.
+- `tests/` holds the deterministic boundary, stress, model/differential and concurrent suites built on the shared state-machine model in `tests/common/mod.rs`; `tests/regressions.rs` holds one test per fixed bug.
+
+### Mandatory after any allocator change
+Any change under `src/` (or to the test model in `tests/common/`) is not done until all of these pass locally:
+1. `scripts/test.sh` — fmt, clippy, `cargo test`, fuzz corpus replay.
+2. `scripts/miri.sh` — the portable logic under Miri (provenance, aliasing, leaks). Scale new loops with `cfg!(miri)` (see `n()`/`t()` in `src/lib.rs`) rather than skipping tests.
+3. `scripts/fuzz-smoke.sh` — rebuild both AFL targets and fuzz each for at least 60 s (longer, `scripts/fuzz-campaign.sh <target> 8 900`, for changes to freelists, refill/drain, the large-object path or `platform.rs`). Zero crashes and zero hangs required; any finding goes through the triage workflow in `docs/testing.md` (minimise, root-cause, fix, regression input in `fuzz/afl/regressions/` plus a test in `tests/`).
+4. For changes touching hot paths, `scripts/sanitizers.sh` and a `cargo bench` comparison against the previous commit (see the numbers in `README.md`, "Correctness and validation").
+
+### Validation tooling (see `docs/testing.md`)
+- `internal-testing` cargo feature: `NumaAlloc::with_config(nodes, region_size)` and `unsafe fn validate_internal_state()` (metadata invariant walker in `src/validate.rs`). Test/fuzz only — never enable in production.
+- `scripts/miri.sh`, `scripts/sanitizers.sh {asan|tsan}`, `scripts/fuzz-smoke.sh`, `scripts/fuzz-campaign.sh`.
+- AFL++ harnesses live in the standalone `fuzz/afl` workspace (`alloc_ops`, `alloc_threads`); every fixed fuzz finding gets its input in `fuzz/afl/regressions/` **and** a format-independent test in `tests/`.
+- Under `cfg(miri)` `src/platform.rs` replaces mmap/mbind/sysfs/affinity with portable shims; keep new platform calls behind the same gates.
 
 ## Safety Guidelines
 

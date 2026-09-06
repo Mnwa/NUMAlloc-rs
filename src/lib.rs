@@ -5,12 +5,29 @@ mod node_heap;
 mod platform;
 mod size_class;
 mod thread_heap;
+#[cfg(any(test, feature = "internal-testing"))]
+pub mod validate;
 
 pub use allocator::NumaAlloc;
 
 #[cfg(test)]
 mod tests {
     use std::alloc::{GlobalAlloc, Layout};
+
+    /// Iteration count, scaled down under Miri (interpreted, ~1000x slower).
+    const fn n(x: usize) -> usize {
+        if cfg!(miri) {
+            let y = x / 25;
+            if y < 2 { 2 } else { y }
+        } else {
+            x
+        }
+    }
+
+    /// Thread count, capped under Miri.
+    const fn t(x: usize) -> usize {
+        if cfg!(miri) && x > 3 { 3 } else { x }
+    }
 
     use crate::NumaAlloc;
 
@@ -82,7 +99,7 @@ mod tests {
             let layout = Layout::from_size_align(128, 8).unwrap();
             let mut seen = std::collections::HashSet::new();
 
-            for _ in 0..100 {
+            for _ in 0..n(100) {
                 let ptr = ALLOC.alloc(layout);
                 assert!(!ptr.is_null());
                 ALLOC.dealloc(ptr, layout);
@@ -105,7 +122,7 @@ mod tests {
         unsafe {
             let layout = Layout::from_size_align(64, 8).unwrap();
             let mut ptrs: Vec<*mut u8> = Vec::new();
-            for _ in 0..10_000 {
+            for _ in 0..n(10_000) {
                 let ptr = ALLOC.alloc(layout);
                 assert!(!ptr.is_null());
                 std::ptr::write_bytes(ptr, 0x42, 64);
@@ -130,12 +147,12 @@ mod tests {
         static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
-        let handles: Vec<_> = (0..8)
+        let handles: Vec<_> = (0..t(8))
             .map(|_| {
                 thread::spawn(|| unsafe {
                     let layout = Layout::from_size_align(64, 8).unwrap();
                     let mut ptrs = Vec::new();
-                    for _ in 0..2_000 {
+                    for _ in 0..n(2_000) {
                         let ptr = ALLOC.alloc(layout);
                         assert!(!ptr.is_null());
                         std::ptr::write_bytes(ptr, 0x55, 64);
@@ -167,7 +184,7 @@ mod tests {
         let producer = thread::spawn(move || unsafe {
             let layout = Layout::from_size_align(256, 8).unwrap();
             let mut addrs = Vec::new();
-            for _ in 0..200 {
+            for _ in 0..n(200) {
                 let ptr = ALLOC.alloc(layout);
                 assert!(!ptr.is_null());
                 std::ptr::write_bytes(ptr, 0xAA, 256);
@@ -364,11 +381,11 @@ mod tests {
         static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
-        let handles: Vec<_> = (0..4)
+        let handles: Vec<_> = (0..t(4))
             .map(|tid| {
                 thread::spawn(move || unsafe {
                     let mut ptrs: Vec<(*mut u8, Layout)> = Vec::new();
-                    for i in 0..5_000 {
+                    for i in 0..n(5_000) {
                         let size = match (tid + i) % 5 {
                             0 => 16,
                             1 => 128,
@@ -411,8 +428,8 @@ mod tests {
         use std::sync::{Arc, Barrier};
         use std::thread;
 
-        const NUM_THREADS: usize = 8;
-        const ALLOCS_PER_THREAD: usize = 500;
+        const NUM_THREADS: usize = t(8);
+        const ALLOCS_PER_THREAD: usize = n(500);
 
         let barrier = Arc::new(Barrier::new(NUM_THREADS));
         // Store addresses as usize so they are Send.
@@ -478,7 +495,7 @@ mod tests {
         static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
-        let handles: Vec<_> = (0..8)
+        let handles: Vec<_> = (0..t(8))
             .map(|_| {
                 thread::spawn(|| unsafe {
                     let sizes = [16, 64, 256, 1024, 4096, 16384];
@@ -539,11 +556,11 @@ mod tests {
         static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
-        let handles: Vec<_> = (0..8)
+        let handles: Vec<_> = (0..t(8))
             .map(|_| {
                 thread::spawn(|| unsafe {
                     let layout = Layout::from_size_align(512, 8).unwrap();
-                    for _ in 0..500 {
+                    for _ in 0..n(500) {
                         // Scribble + free to pollute the freelist.
                         let dirty = ALLOC.alloc(layout);
                         assert!(!dirty.is_null());
@@ -579,8 +596,8 @@ mod tests {
         use std::sync::{Arc, Barrier};
         use std::thread;
 
-        const NUM_THREADS: usize = 16;
-        const OPS: usize = 2_000;
+        const NUM_THREADS: usize = t(16);
+        const OPS: usize = n(2_000);
 
         let barrier = Arc::new(Barrier::new(NUM_THREADS));
 
@@ -623,11 +640,11 @@ mod tests {
 
         let mut handles = Vec::new();
 
-        for _ in 0..64 {
+        for _ in 0..n(64) {
             handles.push(thread::spawn(|| unsafe {
                 let layout = Layout::from_size_align(256, 8).unwrap();
                 let mut ptrs = Vec::new();
-                for _ in 0..50 {
+                for _ in 0..n(50) {
                     let ptr = ALLOC.alloc(layout);
                     assert!(!ptr.is_null());
                     std::ptr::write_bytes(ptr, 0xCC, 256);
@@ -657,9 +674,9 @@ mod tests {
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::thread;
 
-        const PRODUCERS: usize = 4;
-        const CONSUMERS: usize = 4;
-        const ITEMS_PER_PRODUCER: usize = 2_000;
+        const PRODUCERS: usize = t(4);
+        const CONSUMERS: usize = t(4);
+        const ITEMS_PER_PRODUCER: usize = n(2_000);
 
         // Store addresses as usize so they are Send.
         let queue: Arc<std::sync::Mutex<Vec<usize>>> = Arc::new(std::sync::Mutex::new(Vec::new()));
@@ -737,7 +754,7 @@ mod tests {
         use std::sync::{Arc, Barrier};
         use std::thread;
 
-        const NUM_THREADS: usize = 8;
+        const NUM_THREADS: usize = t(8);
 
         let barrier = Arc::new(Barrier::new(NUM_THREADS));
 
@@ -752,8 +769,8 @@ mod tests {
 
                         // Allocate and immediately free in a pattern that forces
                         // repeated drain: alloc 100, free all, repeat.
-                        for _ in 0..10 {
-                            for _ in 0..100 {
+                        for _ in 0..n(10) {
+                            for _ in 0..n(100) {
                                 let ptr = ALLOC.alloc(layout);
                                 assert!(!ptr.is_null());
                                 std::ptr::write_bytes(ptr, 0x33, 64);
@@ -784,11 +801,11 @@ mod tests {
         static ALLOC: NumaAlloc = NumaAlloc::new();
         use std::thread;
 
-        let handles: Vec<_> = (0..8)
+        let handles: Vec<_> = (0..t(8))
             .map(|tid| {
                 thread::spawn(move || unsafe {
                     let mut ptrs: Vec<(*mut u8, Layout)> = Vec::new();
-                    for i in 0..500 {
+                    for i in 0..n(500) {
                         let (size, align) = if (tid + i) % 7 == 0 {
                             // Large allocation.
                             (64 * 1024, 4096)
@@ -837,8 +854,8 @@ mod tests {
         use std::sync::{Arc, Barrier, Mutex};
         use std::thread;
 
-        const NUM_THREADS: usize = 8;
-        const ALLOCS: usize = 1_000;
+        const NUM_THREADS: usize = t(8);
+        const ALLOCS: usize = n(1_000);
 
         let barrier = Arc::new(Barrier::new(NUM_THREADS));
         let all_ptrs: Arc<Mutex<Vec<usize>>> = Arc::new(Mutex::new(Vec::new()));
@@ -1020,7 +1037,7 @@ mod tests {
             // Allocate at old size repeatedly — old address should reappear.
             let mut found = false;
             let mut probes = Vec::new();
-            for _ in 0..100 {
+            for _ in 0..n(100) {
                 let p = ALLOC.alloc(old_layout);
                 assert!(!p.is_null());
                 probes.push(p);
@@ -1204,7 +1221,7 @@ mod tests {
             let size = 1024 * 1024; // 1 MiB
             let layout = Layout::from_size_align(size, 4096).unwrap();
 
-            for _ in 0..200 {
+            for _ in 0..n(200) {
                 let ptr = ALLOC.alloc(layout);
                 assert!(!ptr.is_null());
                 assert_eq!(ptr as usize % 4096, 0);
@@ -1227,7 +1244,7 @@ mod tests {
         use std::sync::{Arc, Barrier};
         use std::thread;
 
-        const NUM_THREADS: usize = 8;
+        const NUM_THREADS: usize = t(8);
         let barrier = Arc::new(Barrier::new(NUM_THREADS));
 
         let handles: Vec<_> = (0..NUM_THREADS)
@@ -1284,7 +1301,7 @@ mod tests {
         use std::sync::{Arc, Barrier, Mutex};
         use std::thread;
 
-        const NUM_THREADS: usize = 4;
+        const NUM_THREADS: usize = t(4);
         const BATCH: usize = 32;
         // Use 32 KB objects (size class 12): bag_size == object_size, so each
         // bag yields exactly one object.  This guarantees no residual objects

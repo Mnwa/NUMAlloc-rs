@@ -8,10 +8,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Intrusive linked-list node stored directly in freed memory blocks.
 ///
-/// The `next` field is wrapped in [`UnsafeCell`] because it is mutated through
-/// shared pointers in the lock-free [`TreiberStack`]: a pushing thread writes
-/// `next` while other threads may concurrently read different blocks' `next`
-/// fields during a pop.
+/// The `next` field uses [`UnsafeCell`] for mutation under exclusive logical
+/// ownership. Shared stacks detach a chain before reading its links; publishing
+/// a chain relinquishes ownership. Tags alone do not make link reads safe.
 ///
 /// The block must be at least `size_of::<FreeBlock>()` bytes (8 on 64-bit).
 #[repr(C)]
@@ -66,19 +65,30 @@ impl TreiberStack {
         }
     }
 
+    /// Mask selecting the address bits of a packed word.
+    const ADDR_MASK: u64 = 0x0000_FFFF_FFFF_FFFF;
+
+    /// Pack a block pointer and generation tag into one word.
+    ///
+    /// The pointer's provenance is *exposed* so that [`Self::unpack`] can
+    /// legitimately rebuild it from the integer (this is the documented
+    /// strict-provenance escape hatch for tagged-pointer schemes and is what
+    /// lets Miri reason about the round trip).  Addresses above 2^48 would be
+    /// silently truncated, which the debug assertion turns into a hard error.
     #[inline]
     fn pack(ptr: Option<NonNull<FreeBlock>>, tag: u16) -> u64 {
         let raw = match ptr {
-            Some(p) => p.as_ptr() as u64,
+            Some(p) => p.as_ptr().expose_provenance() as u64,
             None => 0,
         };
-        ((tag as u64) << 48) | (raw & 0x0000_FFFF_FFFF_FFFF)
+        debug_assert_eq!(raw & !Self::ADDR_MASK, 0, "block address exceeds 48 bits");
+        ((tag as u64) << 48) | (raw & Self::ADDR_MASK)
     }
 
     #[inline]
     fn unpack(val: u64) -> (Option<NonNull<FreeBlock>>, u16) {
-        let raw = (val & 0x0000_FFFF_FFFF_FFFF) as *mut FreeBlock;
-        let ptr = NonNull::new(raw);
+        let addr = (val & Self::ADDR_MASK) as usize;
+        let ptr = NonNull::new(std::ptr::with_exposed_provenance_mut::<FreeBlock>(addr));
         let tag = (val >> 48) as u16;
         (ptr, tag)
     }
@@ -100,14 +110,17 @@ impl TreiberStack {
         }
     }
 
-    /// Pop a single block from the stack (lock-free).
-    pub fn pop(&self) -> Option<NonNull<FreeBlock>> {
+    /// Atomically detach the entire chain before reading any `next` pointer.
+    /// A generation tag alone cannot protect a losing pop from reading bytes
+    /// already returned to user code. Successful detachment gives this caller
+    /// exclusive ownership; tag wrap cannot invalidate a speculative link read
+    /// because there are no such reads.
+    pub fn take_all(&self) -> Option<NonNull<FreeBlock>> {
         loop {
             let current = self.head.load(Ordering::Acquire);
             let (head, tag) = Self::unpack(current);
             let head = head?;
-            let next = unsafe { head.as_ref().read_next() };
-            let new = Self::pack(next, tag.wrapping_add(1));
+            let new = Self::pack(None, tag.wrapping_add(1));
             if self
                 .head
                 .compare_exchange_weak(current, new, Ordering::AcqRel, Ordering::Acquire)
@@ -116,6 +129,21 @@ impl TreiberStack {
                 return Some(head);
             }
         }
+    }
+
+    #[cfg(test)]
+    fn pop(&self) -> Option<NonNull<FreeBlock>> {
+        let first = self.take_all()?;
+        // SAFETY: this caller exclusively owns the detached chain.
+        if let Some(next) = unsafe { first.as_ref().read_next() } {
+            let mut last = next;
+            // SAFETY: links are read only before ownership is published again.
+            while let Some(next) = unsafe { last.as_ref().read_next() } {
+                last = next;
+            }
+            self.push_chain(next, last);
+        }
+        Some(first)
     }
 
     /// Push a chain of blocks from `first` through `last` in one CAS.
@@ -146,6 +174,13 @@ impl TreiberStack {
         let (head, _) = Self::unpack(self.head.load(Ordering::Relaxed));
         head.is_none()
     }
+
+    /// Snapshot of the current head without detaching it.  Only meaningful
+    /// for invariant walks on a quiescent stack; see [`crate::validate`].
+    #[cfg(any(test, feature = "internal-testing"))]
+    pub fn peek_head(&self) -> Option<NonNull<FreeBlock>> {
+        Self::unpack(self.head.load(Ordering::Acquire)).0
+    }
 }
 
 // Safety: The stack is designed for concurrent access from multiple threads.
@@ -163,6 +198,13 @@ pub struct ThreadFreelist {
     head: Option<NonNull<FreeBlock>>,
     tail: Option<NonNull<FreeBlock>>,
     count: usize,
+    /// Blocks detached from the node stack but not yet walked.  A refill
+    /// takes the whole shared chain in one CAS (the only race-free way to
+    /// read intrusive links) and moves at most `REFILL_BATCH` blocks into
+    /// the counted list; the untouched remainder is parked here, owned by
+    /// this thread, and consumed by later refills at O(1) per block.  Its
+    /// length and tail are unknown until walked (thread exit does so).
+    spare: Option<NonNull<FreeBlock>>,
 }
 
 impl ThreadFreelist {
@@ -171,7 +213,26 @@ impl ThreadFreelist {
             head: None,
             tail: None,
             count: 0,
+            spare: None,
         }
+    }
+
+    /// Detach the parked spare chain (see [`Self::spare`]).
+    #[inline]
+    pub fn take_spare(&mut self) -> Option<NonNull<FreeBlock>> {
+        self.spare.take()
+    }
+
+    /// Park a chain whose length/tail are unknown.  Must be empty first.
+    #[inline]
+    pub fn set_spare(&mut self, chain: Option<NonNull<FreeBlock>>) {
+        debug_assert!(self.spare.is_none());
+        self.spare = chain;
+    }
+
+    #[cfg(any(test, feature = "internal-testing"))]
+    pub fn spare(&self) -> Option<NonNull<FreeBlock>> {
+        self.spare
     }
 
     /// Push a freed block to the head (most-recently-freed end).
@@ -219,6 +280,16 @@ impl ThreadFreelist {
         self.count
     }
 
+    #[cfg(any(test, feature = "internal-testing"))]
+    pub fn head(&self) -> Option<NonNull<FreeBlock>> {
+        self.head
+    }
+
+    #[cfg(any(test, feature = "internal-testing"))]
+    pub fn tail(&self) -> Option<NonNull<FreeBlock>> {
+        self.tail
+    }
+
     #[cfg(test)]
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -252,6 +323,9 @@ impl ThreadFreelist {
         if self.count <= keep {
             return None;
         }
+        if keep == 0 {
+            return self.drain_all();
+        }
         let drain_count = self.count - keep;
 
         // Walk `keep - 1` hops from `head` to reach the split point.
@@ -262,6 +336,10 @@ impl ThreadFreelist {
 
         let chain_head = unsafe { split.as_ref().read_next().unwrap() };
         let chain_tail = self.tail.unwrap();
+        debug_assert!(
+            unsafe { chain_tail.as_ref().read_next() }.is_none(),
+            "thread freelist tail must terminate the chain"
+        );
 
         unsafe { split.as_ref().write_next(None) };
         self.tail = Some(split);
@@ -398,8 +476,9 @@ mod tests {
         use std::thread;
 
         let stack = Arc::new(TreiberStack::new());
-        let num_threads = 8;
-        let ops_per_thread = 1000;
+        // Scaled down under Miri: spinning threads are very slow to interpret.
+        let num_threads = if cfg!(miri) { 3 } else { 8 };
+        let ops_per_thread = if cfg!(miri) { 40 } else { 1000 };
 
         let handles: Vec<_> = (0..num_threads)
             .map(|_| {
@@ -410,8 +489,14 @@ mod tests {
                         s.push(b);
                     }
                     for _ in 0..ops_per_thread {
-                        let p = s.pop();
-                        assert!(p.is_some());
+                        loop {
+                            if let Some(p) = s.pop() {
+                                // SAFETY: pop gives exclusive ownership; no shared reader remains.
+                                unsafe { free_block(p) };
+                                break;
+                            }
+                            thread::yield_now();
+                        }
                     }
                 })
             })

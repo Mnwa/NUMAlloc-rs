@@ -2,10 +2,10 @@ use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use std::ptr::NonNull;
 use std::sync::OnceLock;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::freelist::FreeBlock;
-use crate::heap::GlobalHeap;
+use crate::heap::{GlobalHeap, HeapHandle};
 use crate::platform;
 use crate::size_class::{self, SMALL_LIMIT};
 use crate::thread_heap::{MADVISE_THRESHOLD, PerThreadHeap, REFILL_BATCH, max_thread_cache};
@@ -42,15 +42,12 @@ impl ThreadHeapSlot {
 
 impl Drop for ThreadHeapSlot {
     fn drop(&mut self) {
-        if let Some(mut th_ptr) = self.inner.get() {
-            // SAFETY: `th_ptr` was allocated via `System.alloc` in
-            // `NumaAlloc::thread_heap` and points to a valid `PerThreadHeap`.
-            // The `GlobalHeap` is stored in a `static OnceLock` and outlives
-            // all non-main threads; for the main thread, thread-locals are
-            // destroyed before statics.
+        if let Some(th_ptr) = self.inner.take() {
+            // SAFETY: the slot exclusively owns this System allocation. The
+            // heap handle remains live throughout PerThreadHeap's destructor.
             unsafe {
-                th_ptr.as_mut().drain_to_node_heap();
-                System.dealloc(th_ptr.as_ptr() as *mut u8, Layout::new::<PerThreadHeap>());
+                th_ptr.drop_in_place();
+                System.dealloc(th_ptr.cast().as_ptr(), Layout::new::<PerThreadHeap>());
             }
         }
     }
@@ -93,17 +90,13 @@ struct LargeHeader {
 /// static ALLOC: numalloc::NumaAlloc = numalloc::NumaAlloc::new();
 /// ```
 pub struct NumaAlloc {
-    heap: OnceLock<GlobalHeap>,
+    heap: OnceLock<HeapHandle>,
     /// Round-robin counter for assigning threads to NUMA nodes.
     next_node: AtomicUsize,
-    /// Guard to prevent re-entrant deadlock during heap initialisation.
-    ///
-    /// `detect_topology()` uses `std::fs::read_dir` which allocates through
-    /// the global allocator.  If the global allocator *is* this NumaAlloc
-    /// instance, the re-entrant `alloc` call would deadlock on the `OnceLock`.
-    /// While this flag is set, all allocation/deallocation requests on the
-    /// initialising thread are forwarded to the system allocator.
-    initializing: AtomicBool,
+    /// Test-only topology override (`0` = auto-detect).  Only present when
+    /// the `internal-testing` feature is on so production layout is unchanged.
+    #[cfg(feature = "internal-testing")]
+    config: (usize, usize),
 }
 
 // Safety: `OnceLock` and `AtomicUsize` are both `Send + Sync`.  The
@@ -123,66 +116,130 @@ impl NumaAlloc {
         Self {
             heap: OnceLock::new(),
             next_node: AtomicUsize::new(0),
-            initializing: AtomicBool::new(false),
+            #[cfg(feature = "internal-testing")]
+            config: (0, 0),
         }
     }
 
-    fn heap(&self) -> &GlobalHeap {
+    /// Build an allocator with an explicit virtual topology.
+    ///
+    /// `num_nodes` is clamped to `1..=MAX_NODES`; `region_size` (bytes per
+    /// node) is rounded up to a multiple of 256 KiB.  On hosts without the
+    /// requested physical nodes `mbind` simply fails and memory is placed by
+    /// the kernel's default policy, so this is safe to use anywhere.  Meant
+    /// for tests and fuzz harnesses that need multi-node code paths or quick
+    /// region exhaustion.
+    #[cfg(feature = "internal-testing")]
+    pub const fn with_config(num_nodes: usize, region_size: usize) -> Self {
+        Self {
+            heap: OnceLock::new(),
+            next_node: AtomicUsize::new(0),
+            config: (num_nodes, region_size),
+        }
+    }
+
+    fn heap(&self) -> &HeapHandle {
         self.heap.get_or_init(|| {
-            self.initializing.store(true, Ordering::Release);
-            let topo = platform::detect_topology();
-            let heap =
-                GlobalHeap::new(topo.num_nodes).expect("numalloc: failed to mmap heap region");
-            self.initializing.store(false, Ordering::Release);
-            heap
+            #[cfg(feature = "internal-testing")]
+            let (num_nodes, region_size) = if self.config.0 != 0 {
+                self.config
+            } else {
+                (
+                    platform::detect_topology().num_nodes,
+                    crate::heap::DEFAULT_REGION_SIZE,
+                )
+            };
+            #[cfg(not(feature = "internal-testing"))]
+            let (num_nodes, region_size) = (
+                platform::detect_topology().num_nodes,
+                crate::heap::DEFAULT_REGION_SIZE,
+            );
+            // GlobalAlloc must not unwind on initialization failure.
+            HeapHandle::new(num_nodes, region_size).unwrap_or_else(|| std::process::abort())
         })
     }
 
-    /// Obtain (or lazily create) the calling thread's [`PerThreadHeap`].
+    /// Number of NUMA nodes this allocator distributes threads across.
+    #[cfg(feature = "internal-testing")]
+    pub fn num_nodes(&self) -> usize {
+        self.heap().num_nodes()
+    }
+
+    /// Whether `ptr` lies inside this allocator's pre-mapped region (as
+    /// opposed to a dedicated large-object mapping).
+    #[cfg(feature = "internal-testing")]
+    pub fn owns(&self, ptr: *mut u8) -> bool {
+        NonNull::new(ptr).is_some_and(|p| self.heap().is_owned(p))
+    }
+
+    /// Check every allocator-internal invariant that can be verified from
+    /// metadata alone, panicking with a description on the first violation.
+    /// See [`crate::validate`] for the full list.  Behaviour of the allocator
+    /// is not affected; the check only reads metadata and free blocks.
     ///
-    /// The heap struct is allocated from the **system** allocator so that the
-    /// very first allocation of a new thread doesn't recurse into NUMAlloc.
-    fn thread_heap(&self) -> NonNull<PerThreadHeap> {
-        // Fast path: try_with avoids panicking when TLS is being destroyed.
-        if let Ok(Some(ptr)) = TH_PTR.try_with(ThreadHeapSlot::get) {
-            return ptr;
-        }
-
-        // Slow path — first allocation on this thread.
+    /// Covers all per-node Treiber stacks and the *calling* thread's caches.
+    /// Other threads' caches are not reachable and are validated when they
+    /// drain on thread exit (their blocks then appear on the node stacks).
+    ///
+    /// # Safety
+    /// The allocator must be quiescent: no other thread may allocate,
+    /// deallocate or exit (draining its cache) through this allocator while
+    /// the walk runs, because the intrusive `next` links of blocks on the
+    /// shared stacks are read without synchronisation.
+    #[cfg(any(test, feature = "internal-testing"))]
+    pub unsafe fn validate_internal_state(&self) {
         let heap = self.heap();
-        let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
-
-        // Allocate PerThreadHeap from the system allocator.
-        let layout = Layout::new::<PerThreadHeap>();
-        let raw = unsafe { System.alloc(layout) } as *mut PerThreadHeap;
-        let Some(nn) = NonNull::new(raw) else {
-            std::alloc::handle_alloc_error(layout);
-        };
-        unsafe {
-            nn.as_ptr()
-                .write(PerThreadHeap::new(node, NonNull::from(heap)));
+        let mut marks = crate::validate::Marks::new(heap);
+        // SAFETY: quiescence is guaranteed by the caller.
+        unsafe { heap.validate(&mut marks) };
+        if let Ok(Some(th)) = TH_PTR.try_with(ThreadHeapSlot::get) {
+            // SAFETY: the TLS slot owns an initialised heap for this thread.
+            let th = unsafe { th.as_ref() };
+            if std::ptr::eq::<GlobalHeap>(&*th.global_heap, &**heap) {
+                th.validate(&mut marks);
+            }
         }
+    }
 
-        // Register in TLS BEFORE bind_thread_to_node, which allocates
-        // (std::fs::read_to_string).  Without this, the recursive alloc call
-        // would see TH_PTR as empty and re-enter this slow path infinitely.
-        let _ = TH_PTR.try_with(|slot| slot.set(Some(nn)));
-
-        // Bind thread to its NUMA node (no-op on non-Linux).
-        platform::bind_thread_to_node(node);
-
-        nn
+    /// A destroyed TLS slot cannot be recreated. Its callers use uncached
+    /// mmap allocations or return freed blocks directly to their origin node.
+    fn thread_heap(&self) -> Option<NonNull<PerThreadHeap>> {
+        TH_PTR
+            .try_with(|slot| {
+                let heap = self.heap();
+                if let Some(ptr) = slot.get() {
+                    // SAFETY: the TLS slot owns the initialized thread heap.
+                    if std::ptr::eq::<GlobalHeap>(&*unsafe { ptr.as_ref() }.global_heap, &**heap) {
+                        return ptr;
+                    }
+                    slot.set(None);
+                    // SAFETY: switching allocators relinquishes this thread's
+                    // exclusive cache, whose handle retains its original heap.
+                    unsafe {
+                        ptr.drop_in_place();
+                        System.dealloc(ptr.cast().as_ptr(), Layout::new::<PerThreadHeap>());
+                    }
+                }
+                // Advisory round-robin assignment has no publication dependency.
+                let node = self.next_node.fetch_add(1, Ordering::Relaxed) % heap.num_nodes();
+                let layout = Layout::new::<PerThreadHeap>();
+                // SAFETY: nonzero layout; System cannot recurse into NUMAlloc.
+                let Some(ptr) = NonNull::new(unsafe { System.alloc(layout) }) else {
+                    std::alloc::handle_alloc_error(layout);
+                };
+                let ptr = ptr.cast::<PerThreadHeap>();
+                // SAFETY: ptr exclusively owns suitably aligned storage.
+                unsafe { ptr.write(PerThreadHeap::new(node, heap.clone())) };
+                slot.set(Some(ptr));
+                platform::bind_thread_to_node(node);
+                ptr
+            })
+            .ok()
     }
 }
 
 unsafe impl GlobalAlloc for NumaAlloc {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        // During heap initialisation, fall back to the system allocator to
-        // prevent re-entrant deadlock (heap init reads /sys via std::fs).
-        if self.initializing.load(Ordering::Acquire) {
-            return unsafe { System.alloc(layout) };
-        }
-
         let effective_size = layout.size().max(layout.align());
 
         // --- large object path ---
@@ -195,7 +252,12 @@ unsafe impl GlobalAlloc for NumaAlloc {
             None => return std::ptr::null_mut(),
         };
 
-        let th = unsafe { self.thread_heap().as_mut() };
+        let Some(mut th) = self.thread_heap() else {
+            // SAFETY: valid caller layout; late TLS allocations bypass caches.
+            return unsafe { self.alloc_large(layout) };
+        };
+        // SAFETY: this thread exclusively owns its cache; bootstrap does not recurse.
+        let th = unsafe { th.as_mut() };
         let heap = self.heap();
         let node = th.node_id;
         let fl = th.freelist_mut(class_idx);
@@ -205,20 +267,38 @@ unsafe impl GlobalAlloc for NumaAlloc {
             return block.as_ptr().cast();
         }
 
-        // 2. Refill from per-node freelist.
-        //    Pop individually (each is one CAS) but batch-insert into the
-        //    thread freelist via push_chain for O(1) insertion.
-        let node_fl = heap.node_region(node).node_heap.freelist(class_idx);
-        if let Some(first) = node_fl.pop() {
-            unsafe { first.as_ref().write_next(None) };
+        // 2. Refill.  Use this thread's parked spare chain if it has one;
+        //    otherwise detach the whole shared chain in one CAS.  Intrusive
+        //    links are only ever read on a chain this thread owns outright
+        //    (a per-block pop would read `next` of a block another thread
+        //    may already have handed to user code).  Only REFILL_BATCH
+        //    blocks are walked; the remainder is parked as spare, so refill
+        //    cost is bounded whatever the node stack length.
+        let chain = fl.take_spare().or_else(|| {
+            heap.node_region(node)
+                .node_heap
+                .freelist(class_idx)
+                .take_all()
+        });
+        if let Some(first) = chain {
             let mut tail = first;
-            let mut count = 1usize;
-            while count < REFILL_BATCH {
-                let Some(b) = node_fl.pop() else { break };
-                unsafe { b.as_ref().write_next(None) };
-                unsafe { tail.as_ref().write_next(Some(b)) };
-                tail = b;
-                count += 1;
+            let mut count = 1;
+            loop {
+                // SAFETY: the chain is exclusively owned by this thread.
+                let next = unsafe { tail.as_ref().read_next() };
+                if count >= REFILL_BATCH {
+                    fl.set_spare(next);
+                    // SAFETY: as above; terminates the counted chain.
+                    unsafe { tail.as_ref().write_next(None) };
+                    break;
+                }
+                match next {
+                    Some(n) => {
+                        tail = n;
+                        count += 1;
+                    }
+                    None => break,
+                }
             }
             fl.push_chain(first, tail, count);
             return fl.pop().unwrap().as_ptr().cast();
@@ -244,12 +324,6 @@ unsafe impl GlobalAlloc for NumaAlloc {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        // During heap initialisation, all allocations go through the system
-        // allocator, so deallocations must as well.
-        if self.initializing.load(Ordering::Acquire) {
-            return unsafe { System.dealloc(ptr, layout) };
-        }
-
         let Some(ptr) = NonNull::new(ptr) else { return };
         let effective_size = layout.size().max(layout.align());
 
@@ -276,8 +350,24 @@ unsafe impl GlobalAlloc for NumaAlloc {
             Some(n) => n,
             None => return,
         };
+        // A block handed out from a bag is always aligned to its class size
+        // and lies below the bump pointer; anything else is a caller passing
+        // a wrong layout/pointer or an internal carving bug.
+        debug_assert_eq!(
+            ptr.as_ptr() as usize % size_class::size_for_class(class_idx),
+            0,
+            "dealloc: pointer misaligned for its size class"
+        );
 
-        let th = unsafe { self.thread_heap().as_mut() };
+        let Some(mut th) = self.thread_heap() else {
+            heap.node_region(origin_node)
+                .node_heap
+                .freelist(class_idx)
+                .push(ptr.cast());
+            return;
+        };
+        // SAFETY: the thread owns the initialized cache exclusively.
+        let th = unsafe { th.as_mut() };
         let current_node = th.node_id;
         let block = ptr.cast::<FreeBlock>();
 
@@ -308,14 +398,24 @@ unsafe impl GlobalAlloc for NumaAlloc {
 
     unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
         let effective_size = layout.size().max(layout.align());
-
         if effective_size > SMALL_LIMIT {
-            // Large path: mmap already returns zeroed pages — the header is
-            // written *before* the returned pointer, so the payload is clean.
-            return unsafe { self.alloc(layout) };
+            // A fresh anonymous mapping is zero-filled lazily by the kernel;
+            // touching it here would defeat that.  A mapping reused from the
+            // per-thread large cache may hold stale bytes (MADV_DONTNEED is
+            // only applied above MADVISE_THRESHOLD, and macOS MADV_FREE keeps
+            // contents), so only those are zeroed explicitly.
+            // SAFETY: layout is the caller's valid allocation request.
+            let (ptr, reused) = unsafe { self.alloc_large_tracked(layout) };
+            if !ptr.is_null() && reused {
+                // SAFETY: ptr is valid for layout.size() bytes.
+                unsafe { std::ptr::write_bytes(ptr, 0, layout.size()) };
+            }
+            return ptr;
         }
-
         // Small path: memory may come from a freelist (stale data), so zero it.
+        // (If the region is exhausted this falls back to a fresh mapping and
+        // the memset is merely redundant, never wrong.)
+        // SAFETY: layout is the caller's valid allocation request.
         let ptr = unsafe { self.alloc(layout) };
         if !ptr.is_null() {
             unsafe { std::ptr::write_bytes(ptr, 0, layout.size()) };
@@ -336,12 +436,18 @@ unsafe impl GlobalAlloc for NumaAlloc {
                 size_class::size_class_index(new_effective),
             )
             && old_cls == new_cls
+            && NonNull::new(ptr).is_some_and(|p| self.heap().is_owned(p))
         {
             return ptr;
         }
 
-        // General case: allocate → copy → deallocate.
-        let new_layout = unsafe { Layout::from_size_align_unchecked(new_size, old_layout.align()) };
+        // General case: allocate → copy → deallocate.  The caller contract
+        // already forbids `new_size` overflowing `isize::MAX` after rounding
+        // to the alignment, but a single compare is cheap insurance against
+        // silently building an invalid layout.
+        let Ok(new_layout) = Layout::from_size_align(new_size, old_layout.align()) else {
+            return std::ptr::null_mut();
+        };
         let new_ptr = unsafe { self.alloc(new_layout) };
         if new_ptr.is_null() {
             return new_ptr;
@@ -362,12 +468,15 @@ unsafe impl GlobalAlloc for NumaAlloc {
 impl NumaAlloc {
     /// Compute the total mmap size needed for a large allocation.
     #[inline]
-    fn large_alloc_size(layout: &Layout) -> usize {
+    fn large_alloc_size(layout: &Layout) -> Option<usize> {
         let page_size = platform::page_size();
         let header_size = std::mem::size_of::<LargeHeader>();
         let align = layout.align().max(std::mem::align_of::<LargeHeader>());
-        let alloc_size = header_size + (align - 1) + layout.size();
-        (alloc_size + page_size - 1) & !(page_size - 1)
+        let alloc_size = header_size
+            .checked_add(align - 1)?
+            .checked_add(layout.size())?;
+        let rounded = alloc_size.checked_add(page_size - 1)? & !(page_size - 1);
+        (rounded <= isize::MAX as usize).then_some(rounded)
     }
 
     /// Place the [`LargeHeader`] and return the payload pointer for a given
@@ -381,6 +490,10 @@ impl NumaAlloc {
         let header_size = std::mem::size_of::<LargeHeader>();
         let align = layout.align().max(std::mem::align_of::<LargeHeader>());
         let payload_addr = (raw.as_ptr() as usize + header_size + align - 1) & !(align - 1);
+        debug_assert!(
+            payload_addr - (raw.as_ptr() as usize) + layout.size() <= alloc_size,
+            "large payload does not fit its mapping"
+        );
 
         // SAFETY: payload_addr - header_size is within the mmap region and
         // correctly aligned for LargeHeader.
@@ -400,26 +513,47 @@ impl NumaAlloc {
     /// A [`LargeHeader`] is placed just before the returned pointer so that
     /// [`dealloc_large`] can recover the original mmap address and size.
     unsafe fn alloc_large(&self, layout: Layout) -> *mut u8 {
-        let alloc_size = Self::large_alloc_size(&layout);
-        let th = unsafe { self.thread_heap().as_mut() };
+        // SAFETY: forwarded contract.
+        unsafe { self.alloc_large_tracked(layout) }.0
+    }
+
+    /// [`Self::alloc_large`] that also reports whether the mapping was reused
+    /// from the per-thread cache (`true`) or freshly mapped (`false`).
+    ///
+    /// # Safety
+    /// Same as [`GlobalAlloc::alloc`].
+    unsafe fn alloc_large_tracked(&self, layout: Layout) -> (*mut u8, bool) {
+        let Some(alloc_size) = Self::large_alloc_size(&layout) else {
+            return (std::ptr::null_mut(), false);
+        };
+        let mut thread = self.thread_heap();
+        // SAFETY: a present TLS pointer is initialized and exclusively owned.
+        let th = thread.as_mut().map(|ptr| unsafe { ptr.as_mut() });
+        let node = th.as_ref().map_or(0, |th| th.node_id);
 
         // Fast path: check per-thread large cache.
-        if let Some((raw, _)) = th.large_cache_take(alloc_size) {
-            return unsafe { Self::prepare_large_payload(raw, alloc_size, &layout) };
+        if let Some((raw, mapped_size)) = th.and_then(|th| th.large_cache_take(alloc_size)) {
+            // SAFETY: retain the full mapping extent, including close-size slack.
+            return (
+                unsafe { Self::prepare_large_payload(raw, mapped_size, &layout) },
+                true,
+            );
         }
 
         // Slow path: mmap a fresh region.
         let Some(raw) = (unsafe { platform::mmap_anonymous(alloc_size) }) else {
-            return std::ptr::null_mut();
+            return (std::ptr::null_mut(), false);
         };
 
         // Bind to the current thread's NUMA node.
-        let node = th.node_id;
         unsafe {
             platform::bind_to_node(raw, alloc_size, node);
         }
 
-        unsafe { Self::prepare_large_payload(raw, alloc_size, &layout) }
+        (
+            unsafe { Self::prepare_large_payload(raw, alloc_size, &layout) },
+            false,
+        )
     }
 
     /// Try to cache a freed large mapping; returns `false` if the cache is
@@ -427,7 +561,11 @@ impl NumaAlloc {
     #[inline]
     fn try_cache_large(&self, original: NonNull<u8>, alloc_size: usize) -> bool {
         if let Ok(Some(mut th)) = TH_PTR.try_with(ThreadHeapSlot::get) {
+            // SAFETY: initialized cache owned by this thread.
             let th = unsafe { th.as_mut() };
+            if !std::ptr::eq::<GlobalHeap>(&*th.global_heap, &**self.heap()) {
+                return false;
+            }
             if th.large_cache_put(original, alloc_size) {
                 // Only release physical pages for large regions; for smaller
                 // ones the madvise syscall overhead exceeds the savings.

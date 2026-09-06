@@ -3,7 +3,7 @@ use std::mem::MaybeUninit;
 use std::ptr::NonNull;
 
 use crate::freelist::ThreadFreelist;
-use crate::heap::GlobalHeap;
+use crate::heap::HeapHandle;
 use crate::platform;
 use crate::size_class::{self, NUM_SIZE_CLASSES};
 
@@ -99,7 +99,8 @@ impl LargeCache {
     fn put(&mut self, original_ptr: NonNull<u8>, alloc_size: usize) -> bool {
         // Evict stale entries when the cache is full or byte limit reached.
         while self.count > 0
-            && (self.count >= LARGE_CACHE_SLOTS || self.bytes + alloc_size > MAX_LARGE_CACHE_BYTES)
+            && (self.count >= LARGE_CACHE_SLOTS
+                || self.bytes.saturating_add(alloc_size) > MAX_LARGE_CACHE_BYTES)
         {
             self.count -= 1;
             // SAFETY: entries[0..count] are always initialised.
@@ -110,7 +111,7 @@ impl LargeCache {
                 platform::munmap(evicted.original_ptr, evicted.alloc_size);
             }
         }
-        if self.bytes + alloc_size > MAX_LARGE_CACHE_BYTES {
+        if self.bytes.saturating_add(alloc_size) > MAX_LARGE_CACHE_BYTES {
             return false;
         }
         let idx = self.count;
@@ -121,6 +122,48 @@ impl LargeCache {
         self.count += 1;
         self.bytes += alloc_size;
         true
+    }
+
+    /// Check slot/byte accounting and entry sanity.  See [`crate::validate`].
+    #[cfg(any(test, feature = "internal-testing"))]
+    fn validate(&self, heap: &crate::heap::GlobalHeap) {
+        assert!(
+            self.count <= LARGE_CACHE_SLOTS,
+            "large cache count overflow"
+        );
+        assert!(
+            self.bytes <= MAX_LARGE_CACHE_BYTES,
+            "large cache byte overflow"
+        );
+        let page = platform::page_size();
+        let mut total = 0usize;
+        for i in 0..self.count {
+            // SAFETY: entries[0..count] are always initialised.
+            let e = unsafe { self.entries[i].assume_init_read() };
+            let addr = e.original_ptr.as_ptr() as usize;
+            assert_eq!(addr % page, 0, "large cache entry {i} not page aligned");
+            assert_eq!(
+                e.alloc_size % page,
+                0,
+                "large cache entry {i} size not page multiple"
+            );
+            assert!(e.alloc_size > 0, "large cache entry {i} has zero size");
+            assert!(
+                !heap.is_owned(e.original_ptr),
+                "large cache entry {i} points into the region"
+            );
+            for j in 0..i {
+                // SAFETY: entries[0..count] are always initialised.
+                let other = unsafe { self.entries[j].assume_init_read() };
+                let o = other.original_ptr.as_ptr() as usize;
+                assert!(
+                    addr + e.alloc_size <= o || o + other.alloc_size <= addr,
+                    "large cache entries {i} and {j} overlap"
+                );
+            }
+            total += e.alloc_size;
+        }
+        assert_eq!(total, self.bytes, "large cache byte accounting drifted");
     }
 
     fn flush(&mut self) {
@@ -142,8 +185,9 @@ impl LargeCache {
 // PerThreadHeap
 // ---------------------------------------------------------------------------
 
-/// Number of objects to attempt to refill from the per-node heap when the
-/// per-thread freelist is empty.
+/// Number of blocks moved from a detached node chain into the counted
+/// per-thread freelist per refill; the rest is parked as the spare chain.
+/// Bounds refill cost to O(REFILL_BATCH) regardless of node stack length.
 pub const REFILL_BATCH: usize = 64;
 
 /// Maximum objects cached per size class in a per-thread freelist before
@@ -190,14 +234,14 @@ pub struct PerThreadHeap {
     pub node_id: usize,
     /// Pointer to the owning [`GlobalHeap`], used during thread-exit cleanup
     /// to drain cached blocks back to per-node freelists.
-    pub global_heap: NonNull<GlobalHeap>,
+    pub global_heap: HeapHandle,
     freelists: [ThreadFreelist; NUM_SIZE_CLASSES],
     /// Heap-allocated large object cache (via System allocator).
     large_cache: NonNull<LargeCache>,
 }
 
 impl PerThreadHeap {
-    pub fn new(node_id: usize, global_heap: NonNull<GlobalHeap>) -> Self {
+    pub fn new(node_id: usize, global_heap: HeapHandle) -> Self {
         Self {
             node_id,
             global_heap,
@@ -234,14 +278,22 @@ impl PerThreadHeap {
     /// `self.global_heap` must point to a valid, live [`GlobalHeap`].
     pub unsafe fn drain_to_node_heap(&mut self) {
         // SAFETY: caller guarantees GlobalHeap is still alive.
-        let heap = unsafe { self.global_heap.as_ref() };
+        let heap = &self.global_heap;
         let node = self.node_id;
         for class_idx in 0..NUM_SIZE_CLASSES {
+            let node_fl = heap.node_region(node).node_heap.freelist(class_idx);
             if let Some((head, tail, _)) = self.freelists[class_idx].drain_all() {
-                heap.node_region(node)
-                    .node_heap
-                    .freelist(class_idx)
-                    .push_chain(head, tail);
+                node_fl.push_chain(head, tail);
+            }
+            // The spare chain's tail is unknown: walk it (cold path, thread
+            // exit) so the whole chain goes back in one CAS.
+            if let Some(head) = self.freelists[class_idx].take_spare() {
+                let mut tail = head;
+                // SAFETY: the spare chain is exclusively owned by this thread.
+                while let Some(next) = unsafe { tail.as_ref().read_next() } {
+                    tail = next;
+                }
+                node_fl.push_chain(head, tail);
             }
         }
         // Also release cached large mappings and free the cache struct.
@@ -250,5 +302,74 @@ impl PerThreadHeap {
             let layout = Layout::new::<LargeCache>();
             std::alloc::GlobalAlloc::dealloc(&System, self.large_cache.as_ptr() as *mut u8, layout);
         }
+    }
+}
+
+impl PerThreadHeap {
+    /// Walk this thread's freelists and large cache, checking the invariants
+    /// described in [`crate::validate`].  Must be called by the owning thread.
+    #[cfg(any(test, feature = "internal-testing"))]
+    pub fn validate(&self, marks: &mut crate::validate::Marks) {
+        let heap = &*self.global_heap;
+        assert!(
+            self.node_id < heap.num_nodes(),
+            "thread bound to unknown node"
+        );
+        for class in 0..NUM_SIZE_CLASSES {
+            let fl = &self.freelists[class];
+            let mut cursor = fl.head();
+            let mut len = 0usize;
+            let mut last = None;
+            while let Some(block) = cursor {
+                assert!(
+                    len <= fl.count(),
+                    "thread freelist class {class}: chain longer than count"
+                );
+                assert_eq!(
+                    heap.node_for_ptr(block.cast()),
+                    Some(self.node_id),
+                    "thread freelist class {class}: block from another node"
+                );
+                marks.mark_block(heap, self.node_id, class, block.cast(), "thread cache");
+                last = Some(block);
+                // SAFETY: single-owner list; no concurrent mutation.
+                cursor = unsafe { block.as_ref().read_next() };
+                len += 1;
+            }
+            assert_eq!(
+                len,
+                fl.count(),
+                "thread freelist class {class}: count mismatch"
+            );
+            assert_eq!(
+                last,
+                fl.tail(),
+                "thread freelist class {class}: tail mismatch"
+            );
+            let max_len = heap.region_size() / size_class::size_for_class(class) + 1;
+            let mut cursor = fl.spare();
+            let mut len = 0usize;
+            while let Some(block) = cursor {
+                assert!(len < max_len, "thread spare chain class {class}: cycle");
+                assert_eq!(
+                    heap.node_for_ptr(block.cast()),
+                    Some(self.node_id),
+                    "thread spare chain class {class}: block from another node"
+                );
+                marks.mark_block(heap, self.node_id, class, block.cast(), "thread spare");
+                // SAFETY: single-owner chain; no concurrent mutation.
+                cursor = unsafe { block.as_ref().read_next() };
+                len += 1;
+            }
+        }
+        // SAFETY: large_cache is exclusively owned by this thread.
+        unsafe { self.large_cache.as_ref() }.validate(heap);
+    }
+}
+
+impl Drop for PerThreadHeap {
+    fn drop(&mut self) {
+        // SAFETY: global_heap retains the region until after this destructor.
+        unsafe { self.drain_to_node_heap() };
     }
 }
