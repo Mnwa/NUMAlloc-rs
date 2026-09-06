@@ -332,19 +332,14 @@ unsafe impl GlobalAlloc for NumaAlloc {
 
         let heap = self.heap();
 
-        if !heap.is_owned(ptr) {
+        let Some(origin_node) = heap.node_for_ptr(ptr) else {
             // Pointer not from our region — treat as large (mmap'd).
             unsafe { dealloc_large(ptr, Some(self)) };
             return;
-        }
+        };
 
         let class_idx = match size_class::size_class_index(effective_size) {
             Some(i) => i,
-            None => return,
-        };
-
-        let origin_node = match heap.node_for_ptr(ptr) {
-            Some(n) => n,
             None => return,
         };
         // A block handed out from a bag is always aligned to its class size
@@ -356,17 +351,20 @@ unsafe impl GlobalAlloc for NumaAlloc {
             "dealloc: pointer misaligned for its size class"
         );
 
+        // Rebuild the block from its address rather than reusing the caller's
+        // pointer: see `FreeBlock::from_dealloc_ptr`.
+        let block = FreeBlock::from_dealloc_ptr(ptr);
+
         let Some(mut th) = self.thread_heap() else {
             heap.node_region(origin_node)
                 .node_heap
                 .freelist(class_idx)
-                .push(ptr.cast());
+                .push(block);
             return;
         };
         // SAFETY: the thread owns the initialized cache exclusively.
         let th = unsafe { th.as_mut() };
         let current_node = th.node_id;
-        let block = ptr.cast::<FreeBlock>();
 
         if origin_node == current_node {
             // Local deallocation — push to per-thread freelist (no sync).

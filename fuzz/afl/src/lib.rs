@@ -18,6 +18,10 @@ pub const SLOTS: usize = 64;
 /// Upper bound on allocations per iteration, so `FillEmpty`/`Churn` chains
 /// cannot turn one input into seconds of mmap traffic.
 pub const ALLOC_BUDGET: usize = 20_000;
+/// Upper bound on `Validate` ops per iteration.  Each one walks all metadata
+/// with its own bookkeeping mapping, so a repeated-byte mutation producing
+/// thousands of them exceeds AFL's timeout and is misfiled as a hang.
+pub const VALIDATE_BUDGET: usize = 64;
 
 /// Topology from one header byte: 1-4 virtual nodes, 256 KiB - 2 MiB regions.
 /// Small regions make exhaustion (mmap fallback) reachable in a few ops.
@@ -35,7 +39,14 @@ pub fn fuzz_ops(data: &[u8]) {
     let ops = dec.ops(SLOTS);
     let alloc = NumaAlloc::with_config(nodes, region);
     let mut m = Model::new(&alloc, SLOTS, FillMode::Sparse);
+    let mut validates = 0;
     for &op in &ops {
+        if op == Op::Validate {
+            validates += 1;
+            if validates > VALIDATE_BUDGET {
+                continue;
+            }
+        }
         m.apply(op);
         if m.stats.allocs > ALLOC_BUDGET {
             break;

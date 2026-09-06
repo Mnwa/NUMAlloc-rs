@@ -19,6 +19,25 @@ pub struct FreeBlock {
 }
 
 impl FreeBlock {
+    /// Reinterpret a pointer handed back through `dealloc` as a free block.
+    ///
+    /// The caller's provenance is *exposed* and the block is rebuilt from its
+    /// address, for the same reason [`TreiberStack`] packs pointers that way:
+    /// the pointer a caller returns may carry provenance narrower than the
+    /// block (a `Box<T>` covers `size_of::<T>()` bytes, not the whole
+    /// size-class slot) and may still be protected by the frame that is
+    /// dropping it.  An address-rebuilt pointer resolves, byte by byte, to
+    /// the narrowest valid provenance: the caller's own for the bytes it
+    /// covered, the region mapping's (exposed at heap init) for the rest.
+    /// Recycled blocks are therefore usable for the full slot without
+    /// invalidating a live owner.  Compiles to the identity on real hardware.
+    #[inline]
+    pub fn from_dealloc_ptr(ptr: NonNull<u8>) -> NonNull<FreeBlock> {
+        let addr = ptr.as_ptr().expose_provenance();
+        // SAFETY: `addr` is the address of a `NonNull`, hence non-zero.
+        unsafe { NonNull::new_unchecked(std::ptr::with_exposed_provenance_mut::<FreeBlock>(addr)) }
+    }
+
     /// Read the `next` pointer.
     ///
     /// # Safety

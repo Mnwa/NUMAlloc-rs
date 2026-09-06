@@ -149,6 +149,11 @@ impl GlobalHeap {
         debug_assert!(aligned + total_size <= raw + map_size);
         // SAFETY: `aligned - raw < MIN_REGION_SIZE`, inside the mapping.
         let base = unsafe { NonNull::new_unchecked(map_base.as_ptr().add(aligned - raw)) };
+        // Expose the mapping's provenance so that a block rebuilt from its
+        // address (see `FreeBlock::from_dealloc_ptr` and `TreiberStack::pack`)
+        // can always be resolved to the full region, not only to whatever
+        // narrower provenance the last owner handed back.
+        let _ = base.as_ptr().expose_provenance();
 
         let nodes: [NodeRegion; MAX_NODES] = std::array::from_fn(|i| {
             if i < num_nodes {

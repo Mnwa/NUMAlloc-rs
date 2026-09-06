@@ -123,3 +123,39 @@ fn large_alloc_zeroed_after_dirty_reuse_below_madvise_threshold() {
         alloc.dealloc(ptr, layout);
     }
 }
+
+/// A block freed through a pointer whose provenance was narrowed by a
+/// reference retag (what `Box<T>` does for `size_of::<T>()` bytes) used to
+/// be recycled with that narrow provenance.  The next allocation in the same
+/// size class then could not touch the rest of its slot (Miri: "tag does not
+/// exist in the borrow stack").  `dealloc` must rebuild the block from its
+/// address with exposed provenance.
+#[test]
+fn recycled_block_regains_full_slot_provenance() {
+    let alloc = NumaAlloc::new();
+    let narrow = Layout::new::<[u8; 48]>();
+    let full = Layout::new::<[u8; 64]>();
+    // SAFETY: each pointer is written within its layout and freed with the
+    // layout it was allocated with.
+    unsafe {
+        let ptr = alloc.alloc(narrow);
+        assert!(!ptr.is_null());
+        // Retag through a 48-byte reference, then free via a pointer derived
+        // from that reference (its provenance now covers 48 bytes only).
+        let narrowed: &mut [u8; 48] = &mut *ptr.cast::<[u8; 48]>();
+        narrowed.fill(0x11);
+        alloc.dealloc(std::ptr::from_mut(narrowed).cast::<u8>(), narrow);
+
+        // Same size class: the freelist hands the block straight back.
+        let reused = alloc.alloc(full);
+        assert!(!reused.is_null());
+        assert_eq!(reused, ptr, "expected the freed block to be reused");
+        reused.write_bytes(0x22, full.size());
+        assert!(
+            std::slice::from_raw_parts(reused, 64)
+                .iter()
+                .all(|&b| b == 0x22)
+        );
+        alloc.dealloc(reused, full);
+    }
+}
