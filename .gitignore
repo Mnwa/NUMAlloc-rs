@@ -3,4 +3,5 @@
 .claude
 examples/*/target
 fuzz/afl/target
-fuzz/afl/artifacts
+# Generated AFL output, including archived runs. Keep corpus/ and regressions/ tracked.
+/fuzz/afl/artifacts*/
